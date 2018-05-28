@@ -83,6 +83,7 @@ def main():
 
     commits_for_blob = {}
     blobs_for_commit = defaultdict(set)
+    unique_paths_for_commit = defaultdict(set)
     blobs = set()
     exact_blobs = set()
     unknown_blobs = set()
@@ -101,6 +102,8 @@ def main():
                 commits = set(get_commits(backrefs, binsha))
                 if len(commits) == 0:
                     print("WARNING NO COMMITS")
+                if len(commits) == 1:
+                    unique_paths_for_commit[list(commits)[0]].add(path)
                 commits_for_blob[binsha] = commits
                 for c in commits:
                     commits.add(c)
@@ -152,10 +155,13 @@ def main():
     print(len(optional_commits_filtered), 'optional commits.')
 
     print('')
-    print('Required commits by number of matched blobs:')
+    print('Required commits by number of unique blobs:')
 
-    for v,k in required_commits:
+    for v,k in sorted(required_commits, reverse=True, key=lambda x: len(unique_paths_for_commit[x[1]])):
         print(v, binascii.hexlify(k).decode('utf8'))
+        print('   ', len(unique_paths_for_commit[k]), 'matching blob paths unique to this commit:')
+        for path in unique_paths_for_commit[k]:
+            print('       ', path)
 
     print('')
     print('Smallest combination of optional commits:')
