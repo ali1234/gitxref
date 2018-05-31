@@ -12,41 +12,7 @@ from datetime import datetime
 import git
 from git.repo.fun import name_to_object
 
-
-def find_backrefs(repo):
-    return repo.git.rev_parse('--absolute-git-dir').strip() + '/backrefs.pickle'
-
-
-def generate_backrefs(repo):
-    print('Regenerating backref database. This may take a few minutes.')
-
-    backrefs = defaultdict(set)
-
-    for o in repo.git.rev_list('--objects', '-g', '--no-walk', '--all').split('\n'):
-        name = o.split()[0]
-        obj = name_to_object(repo, name)
-        # print(type(obj))
-        if type(obj) == git.objects.tree.Tree:
-            obj.path = 'unknown' # https://github.com/gitpython-developers/GitPython/issues/759
-            for t in obj.trees:
-                backrefs[t.binsha].add(obj.binsha)
-            for b in obj.blobs:
-                backrefs[b.binsha].add(obj.binsha)
-        elif type(obj) == git.objects.commit.Commit:
-            backrefs[obj.tree.binsha].add(obj.binsha)
-
-    with open(find_backrefs(repo), 'wb') as f:
-        pickle.dump(backrefs, f)
-
-    return backrefs
-
-
-def load_backrefs(repo):
-    try:
-        with open(find_backrefs(repo), 'rb') as f:
-            return pickle.load(f)
-    except:
-        return generate_backrefs(repo)
+from gitxref.backrefs import Backrefs
 
 
 def hashblob(f):
@@ -54,15 +20,6 @@ def hashblob(f):
     h.update(b'blob %d\0' % f.stat().st_size)
     h.update(f.read_bytes())
     return h.digest()
-
-
-def get_commits(backrefs, binsha):
-    parents = backrefs[binsha]
-    for binsha_next in parents:
-        if binsha_next in backrefs:
-            yield from get_commits(backrefs, binsha_next)
-        else:
-            yield binsha_next
 
 
 def main():
@@ -76,7 +33,7 @@ def main():
     args = parser.parse_args()
 
     repo = git.Repo(str(args.repository))
-    backrefs = load_backrefs(repo)
+    backrefs = Backrefs(repo)
 
     exact = 0
     unknown = 0
@@ -96,10 +53,10 @@ def main():
         elif f.is_file():
             binsha = hashblob(f)
             blobs.add(binsha)
-            if binsha in backrefs:
+            if backrefs.has_object(binsha):
                 exact += 1
                 exact_blobs.add(binsha)
-                commits = set(get_commits(backrefs, binsha))
+                commits = set(backrefs.commits_for_object(binsha))
                 if len(commits) == 0:
                     print("WARNING NO COMMITS")
                 if len(commits) == 1:
