@@ -84,6 +84,21 @@ class Backrefs(object):
 
         return backrefs, commit_parents
 
+    def optimize(self):
+        seen = []
+        done = 0
+        print('begin optimize', len(self.backrefs))
+        for k, v in self.backrefs.items():
+            for s in seen:
+                if s == v:
+                    self.backrefs[k] = s
+                    print('eliminated one set')
+                    break
+            else:
+                seen.append(v)
+            done += 1
+            if (done%10000) == 0:
+                print('done', done)
 
     def has_object(self, binsha):
         """

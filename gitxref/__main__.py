@@ -31,6 +31,7 @@ def main():
 
     repo = git.Repo(str(args.repository))
     backrefs = Backrefs(repo)
+    backrefs.optimize()
 
     source = Source.scan(args.directory, backrefs)
     while source.find_backrefs():
