@@ -6,6 +6,8 @@ from collections import defaultdict
 import git
 from git.repo.fun import name_to_object
 
+from gitxref.util import b2h
+
 
 class Backrefs(object):
 
@@ -21,7 +23,7 @@ class Backrefs(object):
     def __init__(self, repo):
         self.repo = repo
         self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
-        self.backrefs = self.load()
+        self.backrefs,self.commit_parents = self.load()
 
 
     def check(self):
@@ -48,11 +50,11 @@ class Backrefs(object):
                 except:
                     pass
 
-        backrefs = self.generate()
+        db = self.generate()
         with backrefs_file.open('wb') as f:
-            pickle.dump(backrefs, f)
+            pickle.dump(db, f)
         check_file.write_bytes(hash)
-        return backrefs
+        return db
 
 
     def generate(self):
@@ -62,8 +64,9 @@ class Backrefs(object):
         print('Regenerating backrefs database. This may take a few minutes.')
 
         backrefs = defaultdict(set)
+        commit_parents = defaultdict(set)
 
-        for o in self.repo.git.rev_list('--objects', '-g', '--no-walk', '--all').split('\n'):
+        for o in self.repo.git.rev_list('--objects', '--all').split('\n'):
             name = o.split()[0]
             obj = name_to_object(self.repo, name)
             # print(type(obj))
@@ -74,9 +77,12 @@ class Backrefs(object):
                 for b in obj.blobs:
                     backrefs[b.binsha].add(obj.binsha)
             elif type(obj) == git.objects.commit.Commit:
+                print(b2h(obj.binsha), obj.parents)
                 backrefs[obj.tree.binsha].add(obj.binsha)
+                for p in obj.parents:
+                    commit_parents[obj.binsha].add(p.binsha)
 
-        return backrefs
+        return backrefs, commit_parents
 
 
     def has_object(self, binsha):
@@ -97,3 +103,17 @@ class Backrefs(object):
                 yield from self.commits_for_object(binsha_next)
             else:
                 yield binsha_next
+
+    def all_parents(self, binsha, binshas=None):
+        if binshas is None or binsha in binshas:
+            yield binsha
+        for p in self.commit_parents[binsha]:
+            yield from self.all_parents(p, binshas)
+
+    def root_commits(self, binsha):
+        print(b2h(binsha), self.commit_parents[binsha])
+        if len(self.commit_parents[binsha]) == 0:
+            yield binsha
+        else:
+            for p in self.commit_parents[binsha]:
+                yield from self.root_commits(p)
