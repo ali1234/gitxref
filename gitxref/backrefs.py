@@ -1,4 +1,5 @@
 import hashlib
+import itertools
 import pathlib
 import pickle
 from collections import defaultdict
@@ -6,6 +7,7 @@ from collections import defaultdict
 import git
 from git.repo.fun import name_to_object
 
+from gitxref.dedup import Dedup
 from gitxref.util import b2h
 
 
@@ -20,10 +22,10 @@ class Backrefs(object):
     The back references are cached and invalidated if for_each_ref changed.
     """
 
-    def __init__(self, repo):
+    def __init__(self, repo, rebuild=False):
         self.repo = repo
         self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
-        self.backrefs,self.commit_parents = self.load()
+        self.backrefs,self.commit_parents = self.load(rebuild)
 
 
     def check(self):
@@ -33,7 +35,7 @@ class Backrefs(object):
         return hashlib.sha1(self.repo.git.for_each_ref().encode('utf8')).digest()
 
 
-    def load(self):
+    def load(self, rebuild=False):
         """
         Attempts to load the backrefs from the cache, or regenerate it if there is
         a problem.
@@ -41,14 +43,15 @@ class Backrefs(object):
         hash = self.check()
         check_file = (self.gitdir / 'backrefs.checksum')
         backrefs_file = (self.gitdir / 'backrefs.pickle')
-        if check_file.is_file():
-            old = check_file.read_bytes()
-            if old == hash:
-                try:
-                    with backrefs_file.open('rb') as f:
-                        return pickle.load(f)
-                except:
-                    pass
+        if not rebuild:
+            if check_file.is_file():
+                old = check_file.read_bytes()
+                if old == hash:
+                    try:
+                        with backrefs_file.open('rb') as f:
+                            return pickle.load(f)
+                    except:
+                        pass
 
         db = self.generate()
         with backrefs_file.open('wb') as f:
@@ -66,39 +69,37 @@ class Backrefs(object):
         backrefs = defaultdict(set)
         commit_parents = defaultdict(set)
 
+        seen = Dedup()
+        eliminated = 0
+
         for o in self.repo.git.rev_list('--objects', '--all').split('\n'):
             name = o.split()[0]
             obj = name_to_object(self.repo, name)
+            obj.binsha = seen[obj.binsha]
             # print(type(obj))
             if type(obj) == git.objects.tree.Tree:
                 obj.path = 'unknown'  # https://github.com/gitpython-developers/GitPython/issues/759
-                for t in obj.trees:
-                    backrefs[t.binsha].add(obj.binsha)
-                for b in obj.blobs:
-                    backrefs[b.binsha].add(obj.binsha)
+                for o in itertools.chain(obj.trees, obj.blobs):
+                    o.binsha = seen[o.binsha]
+                    backrefs[o.binsha].add(obj.binsha)
             elif type(obj) == git.objects.commit.Commit:
-                print(b2h(obj.binsha), obj.parents)
+                obj.tree.binsha = seen[obj.tree.binsha]
                 backrefs[obj.tree.binsha].add(obj.binsha)
-                for p in obj.parents:
-                    commit_parents[obj.binsha].add(p.binsha)
+                for o in obj.parents:
+                    o.binsha = seen[o.binsha]
+                    backrefs[o.binsha].add(obj.binsha)
+                    commit_parents[obj.binsha].add(o.binsha)
+        print('Total binsha seen:', len(seen), 'eliminated:', seen.eliminated())
+
+        seen = Dedup()
+        eliminated = 0
+        print('Begin optimize', len(backrefs))
+        for k, v in backrefs.items():
+            v = frozenset(v)
+            backrefs[k] = seen[v]
+        print('Total sets seen:', len(seen), 'eliminated:', seen.eliminated())
 
         return backrefs, commit_parents
-
-    def optimize(self):
-        seen = []
-        done = 0
-        print('begin optimize', len(self.backrefs))
-        for k, v in self.backrefs.items():
-            for s in seen:
-                if s == v:
-                    self.backrefs[k] = s
-                    print('eliminated one set')
-                    break
-            else:
-                seen.append(v)
-            done += 1
-            if (done%10000) == 0:
-                print('done', done)
 
     def has_object(self, binsha):
         """

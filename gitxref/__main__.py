@@ -26,12 +26,13 @@ def main():
                         help='Path to unpacked tarball.')
     parser.add_argument('repository', metavar='repository', type=pathlib.Path,
                         help='Path to Git repository.')
+    parser.add_argument('-R', '--rebuild', action='store_true',
+                        help='Rebuild the backrefs cache (slow).')
 
     args = parser.parse_args()
 
     repo = git.Repo(str(args.repository))
-    backrefs = Backrefs(repo)
-    backrefs.optimize()
+    backrefs = Backrefs(repo, rebuild=args.rebuild)
 
     source = Source.scan(args.directory, backrefs)
     while source.find_backrefs():
