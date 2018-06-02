@@ -70,34 +70,26 @@ class Backrefs(object):
         commit_parents = defaultdict(set)
 
         seen = Dedup()
-        eliminated = 0
-
         for o in self.repo.git.rev_list('--objects', '--all').split('\n'):
             name = o.split()[0]
             obj = name_to_object(self.repo, name)
-            obj.binsha = seen[obj.binsha]
-            # print(type(obj))
+            obj_binsha = seen[obj.binsha]
             if type(obj) == git.objects.tree.Tree:
                 obj.path = 'unknown'  # https://github.com/gitpython-developers/GitPython/issues/759
                 for o in itertools.chain(obj.trees, obj.blobs):
-                    o.binsha = seen[o.binsha]
-                    backrefs[o.binsha].add(obj.binsha)
+                    backrefs[seen[o.binsha]].add(obj_binsha)
             elif type(obj) == git.objects.commit.Commit:
-                obj.tree.binsha = seen[obj.tree.binsha]
-                backrefs[obj.tree.binsha].add(obj.binsha)
-                for o in obj.parents:
-                    o.binsha = seen[o.binsha]
-                    backrefs[o.binsha].add(obj.binsha)
-                    commit_parents[obj.binsha].add(o.binsha)
-        print('Total binsha seen:', len(seen), 'eliminated:', seen.eliminated())
+                backrefs[seen[obj.tree.binsha]].add(obj_binsha)
+                for p in obj.parents:
+                    commit_parents[obj_binsha].add(seen[p.binsha])
+
+        print('Unique binsha:', len(seen), 'Duplicates:', seen.eliminated())
 
         seen = Dedup()
-        eliminated = 0
-        print('Begin optimize', len(backrefs))
         for k, v in backrefs.items():
-            v = frozenset(v)
-            backrefs[k] = seen[v]
-        print('Total sets seen:', len(seen), 'eliminated:', seen.eliminated())
+            backrefs[k] = seen[frozenset(v)]
+
+        print('Unique sets:', len(seen), 'Duplicates:', seen.eliminated())
 
         return backrefs, commit_parents
 
