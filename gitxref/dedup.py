@@ -1,4 +1,3 @@
-
 class Dedup(object):
 
     """
@@ -14,19 +13,15 @@ class Dedup(object):
 
     def __init__(self):
         self._dict = {}
-        self._eliminated = 0
+        self._total = 0
 
     def __getitem__(self, key):
-        if key in self._dict:
-            self._eliminated += 1
-            return self._dict[key]
-        else:
-            self._dict[key] = key
-            return key
+        self._total += 1
+        return self._dict.setdefault(key, key)
 
     def __len__(self):
         return len(self._dict)
 
     @property
     def eliminated(self):
-        return self._eliminated
+        return self._total - len(self._dict)
