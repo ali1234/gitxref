@@ -28,7 +28,7 @@ class Source(object):
                 for c in self.backrefs.commits_for_object(binsha):
                     self.commits[c][index] = True
             count += 1
-            print('Blobs checked: {:6d}/{:d} Commits seen: {:12d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
+            print('Blobs checked: {:6d}/{:d} Commits seen: {:7d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
 
     def find_best(self):
         best = self.commits.items()
