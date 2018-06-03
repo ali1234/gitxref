@@ -27,13 +27,11 @@ class Backrefs(object):
         self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
         self.backrefs,self.commit_parents = self.load(rebuild)
 
-
     def check(self):
         """
         Check the hash of git for_each_rev. If this changed, the cache is invalid.
         """
         return hashlib.sha1(self.repo.git.for_each_ref().encode('utf8')).digest()
-
 
     def load(self, rebuild=False):
         """
@@ -58,7 +56,6 @@ class Backrefs(object):
             pickle.dump(db, f)
         check_file.write_bytes(hash)
         return db
-
 
     def generate(self):
         """
@@ -93,20 +90,18 @@ class Backrefs(object):
 
         return backrefs, commit_parents
 
-    def has_object(self, binsha):
+    def __contains__(self, binsha):
         """
         Checks if the given binsha is known in the backrefs database.
         """
         return binsha in self.backrefs
-
 
     def commits_for_object(self, binsha):
         """
         Gets all the commits containing an object. Commits aren't contained by anything,
         so you found one when there is no further iteration.
         """
-        roots = self.backrefs[binsha]
-        for binsha_next in roots:
+        for binsha_next in self.backrefs[binsha]:
             if binsha_next in self.backrefs:
                 yield from self.commits_for_object(binsha_next)
             else:
