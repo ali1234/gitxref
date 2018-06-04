@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser(description='Git x ref.')
     parser.add_argument('repository', metavar='repository', type=pathlib.Path,
                         help='Path to Git repository.')
-    parser.add_argument('directory', metavar='directory', type=pathlib.Path, default=None,
+    parser.add_argument('directory', metavar='directory', type=pathlib.Path, default=None, nargs='?',
                         help='Path to unpacked tarball.')
     parser.add_argument('-R', '--rebuild', action='store_true',
                         help='Rebuild the backrefs cache (slow).')
