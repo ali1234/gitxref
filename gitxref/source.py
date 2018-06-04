@@ -31,14 +31,15 @@ class Source(object):
             print('Blobs checked: {:6d}/{:d} Commits seen: {:7d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
 
     def find_best(self):
-        best = self.commits.items()
         unfound = bitarray(len(self.blobs))
         unfound[:] = True
 
+        best = list(self.commits.items())
+
         while True:
-            best = sorted(best, key=lambda x: sum(x[1]&unfound), reverse=True)
-            count = sum(best[0][1]&unfound)
-            if count == 0:
+            best.sort(key=lambda x: sum(x[1]&unfound), reverse=True)
+            if sum(best[0][1]&unfound) == 0:
+                yield (None, unfound)
                 return
             yield (best[0][0], best[0][1]&unfound)
             unfound &= ~best[0][1]

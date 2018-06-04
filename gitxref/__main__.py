@@ -29,7 +29,7 @@ def main():
     source = Source(args.directory, backrefs)
     source.find_backrefs()
     for best, bits in source.find_best():
-        print(b2h(best), sum(bits))
+        print('Unfound:' if best is None else b2h(best), sum(bits))
         for binsha, path in source[bits]:
             print('    ', path)
 
