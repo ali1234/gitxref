@@ -65,11 +65,13 @@ class Backrefs(object):
 
         backrefs = defaultdict(set)
         commit_parents = defaultdict(set)
+        typecount = defaultdict(int)
 
         seen = Dedup()
         for o in self.repo.git.rev_list('--objects', '--all').split('\n'):
             name = o.split()[0]
             obj = name_to_object(self.repo, name)
+            typecount[type(obj)] += 1
             obj_binsha = seen[obj.binsha]
             if type(obj) == git.objects.tree.Tree:
                 obj.path = 'unknown'  # https://github.com/gitpython-developers/GitPython/issues/759
@@ -79,6 +81,9 @@ class Backrefs(object):
                 backrefs[seen[obj.tree.binsha]].add(obj_binsha)
                 for p in obj.parents:
                     commit_parents[obj_binsha].add(seen[p.binsha])
+
+        for k, v in typecount.items():
+            print(k.type, v)
 
         print('Unique binsha:', len(seen), 'Duplicates:', seen.eliminated)
 

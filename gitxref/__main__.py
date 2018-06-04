@@ -18,13 +18,13 @@ def main():
     parser.add_argument('-R', '--rebuild', action='store_true',
                         help='Rebuild the backrefs cache (slow).')
 
-    parser.add_argument('-o', '--output', metavar='directory', type=pathlib.Path, default=None,
-                        help='Output directory.')
-
     args = parser.parse_args()
 
     repo = git.Repo(str(args.repository))
     backrefs = Backrefs(repo, rebuild=args.rebuild)
+
+    if args.directory is None:
+        return
 
     source = Source(args.directory, backrefs)
     source.find_backrefs()
