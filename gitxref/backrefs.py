@@ -82,16 +82,14 @@ class Backrefs(object):
                 for p in obj.parents:
                     commit_parents[obj_binsha].add(seen[p.binsha])
 
-        for k, v in typecount.items():
-            print(k.type, v)
-
-        print('Unique binsha:', len(seen), 'Duplicates:', seen.eliminated)
+        print(', '.join('{:s}s: {:d}'.format(k.type.capitalize(), v) for k,v in typecount.items()))
+        print('Unique binsha: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         seen = Dedup()
         for k, v in backrefs.items():
             backrefs[k] = seen[frozenset(v)]
 
-        print('Unique sets:', len(seen), 'Duplicates:', seen.eliminated)
+        print('Unique sets: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         return backrefs, commit_parents
 
