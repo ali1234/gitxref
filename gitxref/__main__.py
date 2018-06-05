@@ -22,7 +22,7 @@ def main():
 
     args = parser.parse_args()
 
-    repo = git.Repo(str(args.repository)) #, odbt=git.GitCmdObjectDB)
+    repo = git.Repo(str(args.repository), odbt=git.GitCmdObjectDB)
     backrefs = Backrefs(repo, rebuild=args.rebuild, threads=args.threads)
 
     if args.directory is None:
