@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import git
 from git.repo.fun import name_to_object
+from gitdb.util import hex_to_bin
 
 from gitxref.dedup import Dedup
 from gitxref.util import b2h
@@ -77,33 +78,47 @@ class Backrefs(object):
             typecount[obj_type] += 1
             obj_binsha = seen[obj_binsha]
 
-            if obj_type == git.objects.commit.Commit:
+            if obj_type == b'commit':
                 trees[seen[x[0]]].append(obj_binsha)
                 for binsha in x[1]:
                     commit_parents[obj_binsha].append(seen[binsha])
 
-            elif obj_type == git.objects.commit.Tree:
+            elif obj_type == b'tree':
                 for binsha in x[0]:
                     trees[seen[binsha]].append(trees[obj_binsha])
                 for binsha in x[1]:
                     backrefs[seen[binsha]].append(trees[obj_binsha])
 
-        print(', '.join('{:s}s: {:d}'.format(k.type.capitalize(), v) for k,v in typecount.items()))
+        print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()))
         print('Unique binsha: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         return backrefs, commit_parents
 
     def get_obj(self, o):
-        name = o.split()[0]
-        obj = name_to_object(self.repo, name)
+        binsha = hex_to_bin(o.split()[0])
+        oinfo = self.repo.odb.info(binsha)
 
-        if type(obj) == git.objects.commit.Commit:
-            return type(obj), obj.binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
-        elif type(obj) == git.objects.commit.Tree:
+        if oinfo.type == b'commit':
+            obj = git.objects.Commit(self.repo, binsha)
+            obj.size = oinfo.size
+            return oinfo.type, binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
+
+        elif oinfo.type == b'tree':
+            obj = git.objects.Tree(self.repo, binsha)
+            obj.size = oinfo.size
             obj.path = 'unknown'
-            return type(obj), obj.binsha, (list(c.binsha for c in obj.trees), list(c.binsha for c in obj.blobs))
+            trees = []
+            blobs = []
+            for o in obj:
+                if o.type == 'tree':
+                    trees.append(o.binsha)
+                elif o.type == 'blob':
+                    blobs.append(o.binsha)
+            return oinfo.type, binsha, (trees, blobs)
+            #return oinfo.type, binsha, (list(o.binsha for o in obj if o.type == 'tree'), list(o.binsha for o in obj if o.type == 'blob'))
+
         else:
-            return type(obj), obj.binsha, None
+            return oinfo.type, binsha, None
 
     def all_objects(self):
         if self.threads > 1:
