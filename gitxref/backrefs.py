@@ -115,7 +115,6 @@ class Backrefs(object):
                 elif o.type == 'blob':
                     blobs.append(o.binsha)
             return oinfo.type, binsha, (trees, blobs)
-            #return oinfo.type, binsha, (list(o.binsha for o in obj if o.type == 'tree'), list(o.binsha for o in obj if o.type == 'blob'))
 
         else:
             return oinfo.type, binsha, None
