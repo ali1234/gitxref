@@ -67,28 +67,29 @@ class Backrefs(object):
         """
         print('Regenerating backrefs database. This may take a few minutes.')
 
-        backrefs = defaultdict(set)
-        trees = defaultdict(set)
-        commit_parents = defaultdict(set)
+        backrefs = defaultdict(list)
+        trees = defaultdict(list)
+        commit_parents = defaultdict(list)
         typecount = defaultdict(int)
 
         seen = Dedup()
-        for obj_type, obj_binsha, children, parents in self.all_objects():
+        for obj_type, obj_binsha, x in self.all_objects():
             typecount[obj_type] += 1
             obj_binsha = seen[obj_binsha]
-            for binsha in children:
-                backrefs[seen[binsha]].add(obj_binsha)
-            for binsha in parents:
-                commit_parents[obj_binsha].add(seen[binsha])
+
+            if obj_type == git.objects.commit.Commit:
+                trees[seen[x[0]]].append(obj_binsha)
+                for binsha in x[1]:
+                    commit_parents[obj_binsha].append(seen[binsha])
+
+            elif obj_type == git.objects.commit.Tree:
+                for binsha in x[0]:
+                    trees[seen[binsha]].append(trees[obj_binsha])
+                for binsha in x[1]:
+                    backrefs[seen[binsha]].append(trees[obj_binsha])
 
         print(', '.join('{:s}s: {:d}'.format(k.type.capitalize(), v) for k,v in typecount.items()))
         print('Unique binsha: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
-
-        seen = Dedup()
-        for k, v in backrefs.items():
-            backrefs[k] = seen[frozenset(v)]
-
-        print('Unique sets: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         return backrefs, commit_parents
 
@@ -97,21 +98,12 @@ class Backrefs(object):
         obj = name_to_object(self.repo, name)
 
         if type(obj) == git.objects.commit.Commit:
-            return (type(obj), obj.binsha,
-                    [obj.tree.binsha],
-                    list(p.binsha for p in obj.parents)
-                    )
+            return type(obj), obj.binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
         elif type(obj) == git.objects.commit.Tree:
             obj.path = 'unknown'
-            return (type(obj), obj.binsha,
-                    list(c.binsha for c in itertools.chain(obj.trees, obj.blobs)),
-                    []
-                    )
+            return type(obj), obj.binsha, (list(c.binsha for c in obj.trees), list(c.binsha for c in obj.blobs))
         else:
-            return (type(obj), obj.binsha,
-                    [],
-                    [],
-                    )
+            return type(obj), obj.binsha, None
 
     def all_objects(self):
         if self.threads > 1:
@@ -127,16 +119,19 @@ class Backrefs(object):
         """
         return binsha in self.backrefs
 
+    def commits_fetch(self, l):
+        for i in l:
+            if type(i) is bytes:
+                yield i
+            else:
+                yield from self.commits_fetch(i)
+
     def commits_for_object(self, binsha):
         """
-        Gets all the commits containing an object. Commits aren't contained by anything,
-        so you found one when there is no further iteration.
+        Gets all the commits containing a blob.
         """
-        for binsha_next in self.backrefs[binsha]:
-            if binsha_next in self.backrefs:
-                yield from self.commits_for_object(binsha_next)
-            else:
-                yield binsha_next
+        if binsha in self.backrefs:
+            yield from self.commits_fetch(self.backrefs[binsha])
 
     def all_parents(self, binsha, binshas=None):
         if binshas is None or binsha in binshas:
