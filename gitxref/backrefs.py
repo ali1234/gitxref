@@ -11,6 +11,8 @@ from git.repo.fun import name_to_object
 from gitxref.dedup import Dedup
 from gitxref.util import b2h
 
+import multiprocessing
+
 
 class Backrefs(object):
 
@@ -23,10 +25,10 @@ class Backrefs(object):
     The back references are cached and invalidated if for_each_ref changed.
     """
 
-    def __init__(self, repo, rebuild=False):
+    def __init__(self, repo, rebuild=False, mp=True):
         self.repo = repo
         self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
-        self.backrefs,self.commit_parents = self.load(rebuild)
+        self.backrefs,self.commit_parents = self.load(rebuild, mp)
 
     def check(self):
         """
@@ -34,7 +36,7 @@ class Backrefs(object):
         """
         return hashlib.sha1(self.repo.git.for_each_ref().encode('utf8')).digest()
 
-    def load(self, rebuild=False):
+    def load(self, rebuild=False, mp=True):
         """
         Attempts to load the backrefs from the cache, or regenerate it if there is
         a problem.
@@ -52,34 +54,31 @@ class Backrefs(object):
                     except:
                         pass
 
-        db = self.generate()
+        db = self.generate(mp)
         with backrefs_file.open('wb') as f:
             pickle.dump(db, f)
         check_file.write_bytes(hash)
         return db
 
-    def generate(self):
+    def generate(self, mp=True):
         """
         Regenerates the backrefs from the repo data.
         """
         print('Regenerating backrefs database. This may take a few minutes.')
 
         backrefs = defaultdict(set)
+        trees = defaultdict(set)
         commit_parents = defaultdict(set)
         typecount = defaultdict(int)
 
         seen = Dedup()
-        for obj in self.all_objects_mp():
-            typecount[type(obj)] += 1
-            obj_binsha = seen[obj.binsha]
-            if type(obj) == git.objects.tree.Tree:
-                obj.path = 'unknown'  # https://github.com/gitpython-developers/GitPython/issues/759
-                for o in itertools.chain(obj.trees, obj.blobs):
-                    backrefs[seen[o.binsha]].add(obj_binsha)
-            elif type(obj) == git.objects.commit.Commit:
-                backrefs[seen[obj.tree.binsha]].add(obj_binsha)
-                for p in obj.parents:
-                    commit_parents[obj_binsha].add(seen[p.binsha])
+        for obj_type, obj_binsha, children, parents in self.all_objects(mp):
+            typecount[obj_type] += 1
+            obj_binsha = seen[obj_binsha]
+            for binsha in children:
+                backrefs[seen[binsha]].add(obj_binsha)
+            for binsha in parents:
+                commit_parents[obj_binsha].add(seen[binsha])
 
         print(', '.join('{:s}s: {:d}'.format(k.type.capitalize(), v) for k,v in typecount.items()))
         print('Unique binsha: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
@@ -95,14 +94,31 @@ class Backrefs(object):
     def get_obj(self, o):
         name = o.split()[0]
         obj = name_to_object(self.repo, name)
-        return obj
 
-    def all_objects(self):
-        return map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
+        if type(obj) == git.objects.commit.Commit:
+            return (type(obj), obj.binsha,
+                    [obj.tree.binsha],
+                    list(p.binsha for p in obj.parents)
+                    )
+        elif type(obj) == git.objects.commit.Tree:
+            obj.path = 'unknown'
+            return (type(obj), obj.binsha,
+                    list(c.binsha for c in itertools.chain(obj.trees, obj.blobs)),
+                    []
+                    )
+        else:
+            return (type(obj), obj.binsha,
+                    [],
+                    [],
+                    )
 
-    def all_objects_mp(self):
-        pool = ThreadPoolExecutor()
-        return pool.map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
+    def all_objects(self, mp):
+        if mp:
+            multiprocessing.set_start_method('spawn')
+            pool = multiprocessing.Pool(processes=8)
+            return pool.imap_unordered(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'), chunksize=5000)
+        else:
+            return map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
 
     def __contains__(self, binsha):
         """
