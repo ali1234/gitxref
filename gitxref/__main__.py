@@ -20,7 +20,7 @@ def main():
 
     args = parser.parse_args()
 
-    repo = git.Repo(str(args.repository))
+    repo = git.Repo(str(args.repository)) #, odbt=git.GitCmdObjectDB)
     backrefs = Backrefs(repo, rebuild=args.rebuild)
 
     if args.directory is None:
@@ -34,5 +34,10 @@ def main():
             print('    ', path)
 
 
+
+
+
 if __name__ == '__main__':
+    #import cProfile
+    #cProfile.run('main()')
     main()

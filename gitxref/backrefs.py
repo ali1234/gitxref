@@ -3,6 +3,7 @@ import itertools
 import pathlib
 import pickle
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 import git
 from git.repo.fun import name_to_object
@@ -68,9 +69,7 @@ class Backrefs(object):
         typecount = defaultdict(int)
 
         seen = Dedup()
-        for o in self.repo.git.rev_list('--objects', '--all').split('\n'):
-            name = o.split()[0]
-            obj = name_to_object(self.repo, name)
+        for obj in self.all_objects_mp():
             typecount[type(obj)] += 1
             obj_binsha = seen[obj.binsha]
             if type(obj) == git.objects.tree.Tree:
@@ -92,6 +91,18 @@ class Backrefs(object):
         print('Unique sets: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         return backrefs, commit_parents
+
+    def get_obj(self, o):
+        name = o.split()[0]
+        obj = name_to_object(self.repo, name)
+        return obj
+
+    def all_objects(self):
+        return map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
+
+    def all_objects_mp(self):
+        pool = ThreadPoolExecutor()
+        return pool.map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
 
     def __contains__(self, binsha):
         """

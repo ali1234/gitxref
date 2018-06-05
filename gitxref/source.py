@@ -20,13 +20,18 @@ class Source(object):
         self.blob_index = {k:v for v,k in enumerate(self.blobs)}
         self.path_index = {k:v for v,k in enumerate(self.paths)}
 
+    def do_one_file(self, binsha):
+        if binsha in self.backrefs:
+            return list(self.backrefs.commits_for_object(binsha))
+        else:
+            return list()
+
     def find_backrefs(self):
         count = 0
         self.commits = bitarray_defaultdict(len(self.blobs))
-        for index, binsha in enumerate(self.blobs):
-            if binsha in self.backrefs:
-                for c in self.backrefs.commits_for_object(binsha):
-                    self.commits[c][index] = True
+        for index, commits in enumerate(map(self.do_one_file, self.blobs)):
+            for c in commits:
+                self.commits[c][index] = True
             count += 1
             print('Blobs checked: {:6d}/{:d} Commits seen: {:7d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
 
