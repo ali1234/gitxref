@@ -17,13 +17,13 @@ def main():
                         help='Path to unpacked tarball.')
     parser.add_argument('-R', '--rebuild', action='store_true',
                         help='Rebuild the backrefs cache (slow).')
-    parser.add_argument('--no-multiprocessing', action='store_true',
-                        help='Don\'t use multiple processes.')
+    parser.add_argument('-t', '--threads', type=int, default=8,
+                        help='Number of threads to use for processing.')
 
     args = parser.parse_args()
 
     repo = git.Repo(str(args.repository)) #, odbt=git.GitCmdObjectDB)
-    backrefs = Backrefs(repo, rebuild=args.rebuild, mp=(not args.no_multiprocessing))
+    backrefs = Backrefs(repo, rebuild=args.rebuild, threads=args.threads)
 
     if args.directory is None:
         return

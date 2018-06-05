@@ -25,10 +25,11 @@ class Backrefs(object):
     The back references are cached and invalidated if for_each_ref changed.
     """
 
-    def __init__(self, repo, rebuild=False, mp=True):
+    def __init__(self, repo, rebuild=False, threads=1):
         self.repo = repo
+        self.threads = threads
         self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
-        self.backrefs,self.commit_parents = self.load(rebuild, mp)
+        self.backrefs,self.commit_parents = self.load(rebuild)
 
     def check(self):
         """
@@ -36,7 +37,7 @@ class Backrefs(object):
         """
         return hashlib.sha1(self.repo.git.for_each_ref().encode('utf8')).digest()
 
-    def load(self, rebuild=False, mp=True):
+    def load(self, rebuild=False):
         """
         Attempts to load the backrefs from the cache, or regenerate it if there is
         a problem.
@@ -54,13 +55,13 @@ class Backrefs(object):
                     except:
                         pass
 
-        db = self.generate(mp)
+        db = self.generate()
         with backrefs_file.open('wb') as f:
             pickle.dump(db, f)
         check_file.write_bytes(hash)
         return db
 
-    def generate(self, mp=True):
+    def generate(self):
         """
         Regenerates the backrefs from the repo data.
         """
@@ -72,7 +73,7 @@ class Backrefs(object):
         typecount = defaultdict(int)
 
         seen = Dedup()
-        for obj_type, obj_binsha, children, parents in self.all_objects(mp):
+        for obj_type, obj_binsha, children, parents in self.all_objects():
             typecount[obj_type] += 1
             obj_binsha = seen[obj_binsha]
             for binsha in children:
@@ -112,10 +113,10 @@ class Backrefs(object):
                     [],
                     )
 
-    def all_objects(self, mp):
-        if mp:
+    def all_objects(self):
+        if self.threads > 1:
             multiprocessing.set_start_method('spawn')
-            pool = multiprocessing.Pool(processes=8)
+            pool = multiprocessing.Pool(processes=self.threads)
             return pool.imap_unordered(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'), chunksize=5000)
         else:
             return map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
