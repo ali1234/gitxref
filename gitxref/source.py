@@ -35,14 +35,16 @@ class Source(object):
 
         best = list(self.commits.items())
 
-        while True:
+        while len(best):
             best.sort(key=lambda x: sum(x[1]&unfound), reverse=True)
             if sum(best[0][1]&unfound) == 0:
-                yield (None, unfound)
-                return
+                break
             yield (best[0][0], best[0][1]&unfound)
             unfound &= ~best[0][1]
             best = best[1:]
+
+        yield (None, unfound)
+        return
 
     def __getitem__(self, arg):
         if type(arg) == int:
