@@ -33,15 +33,23 @@ class Source(object):
         unfound = bitarray(len(self.blobs))
         unfound[:] = True
 
-        best = list(self.commits.items())
+        best = sorted(self.commits.items(), key=lambda x: sum(x[1]&unfound), reverse=True)
 
         while len(best):
-            best.sort(key=lambda x: sum(x[1]&unfound), reverse=True)
-            if sum(best[0][1]&unfound) == 0:
-                break
             yield (best[0][0], best[0][1]&unfound)
             unfound &= ~best[0][1]
-            best = best[1:]
+
+            # old way - evaluates sum(x[1]&unfound) twice
+            best = list(filter(lambda x: sum(x[1]&unfound) > 0, best[1:]))
+            best.sort(key=lambda x: sum(x[1]&unfound), reverse=True)
+
+            # new
+            #d = ((sum(x[1]&unfound), x) for x in best[1:])
+            #s = sorted(filter(lambda x: x[0] > 0, d))
+            #best = [x[1] for x in s]
+
+
+
 
         yield (None, unfound)
         return
@@ -50,4 +58,4 @@ class Source(object):
         if type(arg) == int:
             return (self.blobs[arg], self.paths[arg])
         else:
-            yield from ((self.blobs[x], self.paths[x]) for x,t in enumerate(arg) if t)
+            yield from ((self.blobs[x], self.paths[x]) for x,t in enumerate(arg[:len(self.blobs)]) if t)
