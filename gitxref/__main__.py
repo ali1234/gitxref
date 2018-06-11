@@ -17,13 +17,15 @@ def main():
                         help='Path to unpacked tarball.')
     parser.add_argument('-R', '--rebuild', action='store_true',
                         help='Rebuild the backrefs cache (slow).')
+    parser.add_argument('-S', '--skip-cache', action='store_true',
+                        help="Don't use the backrefs cache.")
     parser.add_argument('-t', '--threads', type=int, default=None,
                         help='Number of threads to use for processing.')
 
     args = parser.parse_args()
 
     repo = Repo(args.repository)
-    backrefs = Backrefs(repo, rebuild=args.rebuild, threads=args.threads)
+    backrefs = Backrefs(repo, skip_cache=args.skip_cache, rebuild=args.rebuild, threads=args.threads)
 
     if args.directory is None:
         return
@@ -34,9 +36,6 @@ def main():
         print('Unfound:' if best is None else b2h(best), sum(bits))
         for binsha, path in source[bits]:
             print('    ', path)
-
-
-
 
 
 if __name__ == '__main__':
