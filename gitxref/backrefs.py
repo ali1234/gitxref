@@ -3,16 +3,15 @@ import itertools
 import pathlib
 import pickle
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 
 import git
-from git.repo.fun import name_to_object
 from gitdb.util import hex_to_bin
 
 from gitxref.dedup import Dedup
 from gitxref.util import b2h
 
 import multiprocessing
+import subprocess
 
 
 class Backrefs(object):
@@ -94,18 +93,15 @@ class Backrefs(object):
 
         return backrefs, commit_parents
 
-    def get_obj(self, o):
-        binsha = hex_to_bin(o.split()[0])
-        oinfo = self.repo.odb.info(binsha)
+    def get_obj(self, x):
+        binsha = hex_to_bin(x[0])
 
-        if oinfo.type == b'commit':
+        if x[1] == b'commit':
             obj = git.objects.Commit(self.repo, binsha)
-            obj.size = oinfo.size
-            return oinfo.type, binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
+            return x[1], binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
 
-        elif oinfo.type == b'tree':
+        elif x[1] == b'tree':
             obj = git.objects.Tree(self.repo, binsha)
-            obj.size = oinfo.size
             obj.path = 'unknown'
             trees = []
             blobs = []
@@ -114,18 +110,27 @@ class Backrefs(object):
                     trees.append(o.binsha)
                 elif o.type == 'blob':
                     blobs.append(o.binsha)
-            return oinfo.type, binsha, (trees, blobs)
+            return x[1], binsha, (trees, blobs)
 
         else:
-            return oinfo.type, binsha, None
+            return x[1], binsha, None
+
+    def all_hexsha(self):
+        """yields (hexsha, type) for every tree and commit in the repo."""
+        proc = subprocess.Popen(['git', '-C', str(self.gitdir), 'cat-file', '--buffer', '--batch-all-objects',
+                                 '--batch-check=%(objectname) %(objecttype)'], stdout=subprocess.PIPE)
+        for line in proc.stdout:
+            tmp = line.strip().split()
+            if tmp[1] in [b'commit', b'tree']:
+                yield tmp
 
     def all_objects(self):
         if self.threads > 1:
             multiprocessing.set_start_method('spawn')
             pool = multiprocessing.Pool(processes=self.threads)
-            return pool.imap_unordered(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'), chunksize=5000)
+            return pool.imap_unordered(self.get_obj, self.all_hexsha(), chunksize=5000)
         else:
-            return map(self.get_obj, self.repo.git.rev_list('--objects', '--all').split('\n'))
+            return map(self.get_obj, self.all_hexsha())
 
     def __contains__(self, binsha):
         """
