@@ -70,17 +70,17 @@ class CatFile(object):
         self._thread = CatFileThread(self._repo)
 
     def __enter__(self):
-        if self._threads > 1:
+        if self._threads > 0:
             multiprocessing.set_start_method('spawn')
             self._pool = multiprocessing.Pool(processes=self._threads, initializer=self._thread.initializer)
         return self
 
     def __exit__(self, *args):
-        if self._threads > 1:
+        if self._threads > 0:
             self._pool.terminate()
 
     def __iter__(self):
-        if self._threads > 1:
+        if self._threads > 0:
             return self._pool.imap_unordered(self._thread.get_obj, self._it, chunksize=5000)
         else:
             self._thread.initializer()
