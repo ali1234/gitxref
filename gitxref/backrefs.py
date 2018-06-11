@@ -7,6 +7,7 @@ from collections import defaultdict
 import git
 from gitdb.util import hex_to_bin
 
+from gitxref.batchall import BatchAll
 from gitxref.dedup import Dedup
 from gitxref.util import b2h
 
@@ -115,22 +116,15 @@ class Backrefs(object):
         else:
             return x[1], binsha, None
 
-    def all_hexsha(self):
-        """yields (hexsha, type) for every tree and commit in the repo."""
-        proc = subprocess.Popen(['git', '-C', str(self.gitdir), 'cat-file', '--buffer', '--batch-all-objects',
-                                 '--batch-check=%(objectname) %(objecttype)'], stdout=subprocess.PIPE)
-        for line in proc.stdout:
-            tmp = line.strip().split()
-            if tmp[1] in [b'commit', b'tree']:
-                yield tmp
-
     def all_objects(self):
-        if self.threads > 1:
-            multiprocessing.set_start_method('spawn')
-            pool = multiprocessing.Pool(processes=self.threads)
-            return pool.imap_unordered(self.get_obj, self.all_hexsha(), chunksize=5000)
-        else:
-            return map(self.get_obj, self.all_hexsha())
+        with BatchAll(self.gitdir, types=[b'commit', b'tree']) as b:
+            map(print, iter(b))
+            if self.threads > 1:
+                multiprocessing.set_start_method('spawn')
+                pool = multiprocessing.Pool(processes=self.threads)
+                yield from pool.imap_unordered(self.get_obj, b, chunksize=5000)
+            else:
+                yield from map(self.get_obj, b)
 
     def __contains__(self, binsha):
         """
