@@ -1,18 +1,10 @@
 import hashlib
-import itertools
-import pathlib
 import pickle
 from collections import defaultdict
 
-import git
-from gitdb.util import hex_to_bin
-
-from gitxref.batchall import BatchAll
+from gitxref.catfile import CatFile
 from gitxref.dedup import Dedup
 from gitxref.util import b2h
-
-import multiprocessing
-import subprocess
 
 
 class Backrefs(object):
@@ -29,14 +21,13 @@ class Backrefs(object):
     def __init__(self, repo, rebuild=False, threads=1):
         self.repo = repo
         self.threads = threads
-        self.gitdir = pathlib.Path(repo.git.rev_parse('--absolute-git-dir').strip())
         self.backrefs,self.commit_parents = self.load(rebuild)
 
     def check(self):
         """
-        Check the hash of git for_each_rev. If this changed, the cache is invalid.
+        Check the hash of git for_each_ref. If this changed, the cache is invalid.
         """
-        return hashlib.sha1(self.repo.git.for_each_ref().encode('utf8')).digest()
+        return hashlib.sha1(b'\n'.join(self.repo.for_each_ref())).digest()
 
     def load(self, rebuild=False):
         """
@@ -44,8 +35,8 @@ class Backrefs(object):
         a problem.
         """
         hash = self.check()
-        check_file = (self.gitdir / 'backrefs.checksum')
-        backrefs_file = (self.gitdir / 'backrefs.pickle')
+        check_file = (self.repo.git_dir / 'backrefs.checksum')
+        backrefs_file = (self.repo.git_dir / 'backrefs.pickle')
         if not rebuild:
             if check_file.is_file():
                 old = check_file.read_bytes()
@@ -74,57 +65,33 @@ class Backrefs(object):
         typecount = defaultdict(int)
 
         seen = Dedup()
-        for obj_type, obj_binsha, x in self.all_objects():
-            typecount[obj_type] += 1
-            obj_binsha = seen[obj_binsha]
 
-            if obj_type == b'commit':
-                trees[seen[x[0]]].append(obj_binsha)
-                for binsha in x[1]:
-                    commit_parents[obj_binsha].append(seen[binsha])
+        with CatFile(self.repo, self.repo.batch_all(types=[b'commit', b'tree']), threads=self.threads) as cf:
+            for obj_type, obj_binsha, x in cf:
+                typecount[obj_type] += 1
+                obj_binsha = seen[obj_binsha]
 
-            elif obj_type == b'tree':
-                for binsha in x[0]:
-                    trees[seen[binsha]].append(trees[obj_binsha])
-                for binsha in x[1]:
-                    backrefs[seen[binsha]].append(trees[obj_binsha])
+                if obj_type == b'commit':
+                    #print('C-- ', b2h(obj_binsha))
+                    #print('  T ', b2h(x[0]))
+                    trees[seen[x[0]]].append(obj_binsha)
+                    for binsha in x[1]:
+                        #print('  P ', b2h(binsha))
+                        commit_parents[obj_binsha].append(seen[binsha])
+
+                elif obj_type == b'tree':
+                    #print('T-- ', b2h(obj_binsha))
+                    for binsha in x[0]:
+                        #print('  T ', b2h(binsha))
+                        trees[seen[binsha]].append(trees[obj_binsha])
+                    for binsha in x[1]:
+                        #print('  B ', b2h(binsha))
+                        backrefs[seen[binsha]].append(trees[obj_binsha])
 
         print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()))
         print('Unique binsha: {:d}, Duplicates: {:d}'.format(len(seen), seen.eliminated))
 
         return backrefs, commit_parents
-
-    def get_obj(self, x):
-        binsha = hex_to_bin(x[0])
-
-        if x[1] == b'commit':
-            obj = git.objects.Commit(self.repo, binsha)
-            return x[1], binsha, (obj.tree.binsha, list(p.binsha for p in obj.parents))
-
-        elif x[1] == b'tree':
-            obj = git.objects.Tree(self.repo, binsha)
-            obj.path = 'unknown'
-            trees = []
-            blobs = []
-            for o in obj:
-                if o.type == 'tree':
-                    trees.append(o.binsha)
-                elif o.type == 'blob':
-                    blobs.append(o.binsha)
-            return x[1], binsha, (trees, blobs)
-
-        else:
-            return x[1], binsha, None
-
-    def all_objects(self):
-        with BatchAll(self.gitdir, types=[b'commit', b'tree']) as b:
-            map(print, iter(b))
-            if self.threads > 1:
-                multiprocessing.set_start_method('spawn')
-                pool = multiprocessing.Pool(processes=self.threads)
-                yield from pool.imap_unordered(self.get_obj, b, chunksize=5000)
-            else:
-                yield from map(self.get_obj, b)
 
     def __contains__(self, binsha):
         """

@@ -1,9 +1,9 @@
 import argparse
 import pathlib
 
-import git
 
 from gitxref.backrefs import Backrefs
+from gitxref.repo import Repo
 from gitxref.source import Source
 from gitxref.util import b2h
 
@@ -17,12 +17,12 @@ def main():
                         help='Path to unpacked tarball.')
     parser.add_argument('-R', '--rebuild', action='store_true',
                         help='Rebuild the backrefs cache (slow).')
-    parser.add_argument('-t', '--threads', type=int, default=8,
+    parser.add_argument('-t', '--threads', type=int, default=None,
                         help='Number of threads to use for processing.')
 
     args = parser.parse_args()
 
-    repo = git.Repo(str(args.repository), odbt=git.GitCmdObjectDB)
+    repo = Repo(args.repository)
     backrefs = Backrefs(repo, rebuild=args.rebuild, threads=args.threads)
 
     if args.directory is None:
