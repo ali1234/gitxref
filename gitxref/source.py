@@ -1,24 +1,28 @@
 from bitarray import bitarray
 
+from gitxref.bitmaps import Bitmaps
 from gitxref.util import b2h, bitarray_defaultdict, hashblob, bitarray_zero
 
 
 class Source(object):
 
-    def __init__(self, directory, backrefs):
+    def __init__(self, repo, directory, backrefs):
+        self.repo = repo
         self.directory = directory
         self.backrefs = backrefs
-        self.blobs = []
-        self.paths = []
+        self.blobs = set()
+        self.paths = {}
 
         for f in directory.rglob('*'):
             path = f.relative_to(directory)
             if f.is_file() and not f.is_symlink():
-                self.blobs.append(hashblob(f))
-                self.paths.append(path)
+                binsha = hashblob(f)
+                self.blobs.add(binsha)
+                self.paths[binsha] = str(path)
+
+        self.blobs = list(self.blobs)
 
         self.blob_index = {k:v for v,k in enumerate(self.blobs)}
-        self.path_index = {k:v for v,k in enumerate(self.paths)}
 
     def find_backrefs(self):
         count = 0
@@ -28,6 +32,10 @@ class Source(object):
                 self.commits[c][index] = True
             count += 1
             print('Blobs checked: {:6d}/{:d} Commits seen: {:7d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
+
+    def make_bitmaps(self, threads=None):
+        with Bitmaps(self.repo, threads) as bm:
+            self.commits = bm.build(self.blob_index)
 
     def find_best(self):
         unfound = bitarray(len(self.blobs))
@@ -56,6 +64,6 @@ class Source(object):
 
     def __getitem__(self, arg):
         if type(arg) == int:
-            return (self.blobs[arg], self.paths[arg])
+            return (self.blobs[arg], self.paths[self.blobs[arg]])
         else:
-            yield from ((self.blobs[x], self.paths[x]) for x,t in enumerate(arg[:len(self.blobs)]) if t)
+            yield from ((self.blobs[x], self.paths[self.blobs[x]]) for x,t in enumerate(arg[:len(self.blobs)]) if t)

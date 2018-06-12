@@ -3,6 +3,7 @@ import pathlib
 
 
 from gitxref.backrefs import Backrefs
+from gitxref.bitmaps import Bitmaps
 from gitxref.repo import Repo
 from gitxref.source import Source
 from gitxref.util import b2h
@@ -25,13 +26,15 @@ def main():
     args = parser.parse_args()
 
     repo = Repo(args.repository)
-    backrefs = Backrefs(repo, skip_cache=args.skip_cache, rebuild=args.rebuild, threads=args.threads)
+    #backrefs = Backrefs(repo, skip_cache=args.skip_cache, rebuild=args.rebuild, threads=args.threads)
 
     if args.directory is None:
         return
 
-    source = Source(args.directory, backrefs)
-    source.find_backrefs()
+    source = Source(repo, args.directory, None)
+    source.make_bitmaps(threads=args.threads)
+    #source.find_backrefs()
+
     for best, bits in source.find_best():
         print('Unfound:' if best is None else b2h(best), sum(bits))
         for binsha, path in source[bits]:
