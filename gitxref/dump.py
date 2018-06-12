@@ -45,10 +45,13 @@ class Dump(object):
             p.wait()
 
     def tree_entries(self, data):
-        while len(data):
-            offs = data.find(b'\x00') + 21
-            yield data[:offs]
-            data = data[offs:]
+        last = 0
+        while True:
+            offs = data.find(b'\x00', last)
+            if offs < 0:
+                break
+            yield data[last:offs], data[offs+1:offs+21]
+            last = offs + 21
 
     def objects(self):
 
@@ -56,8 +59,8 @@ class Dump(object):
             header = self._datapipe.readline().strip().split()
             if len(header) == 0:
                 return
-            data = self._datapipe.read(int(header[2], 10)+1)
-
+            data = self._datapipe.read(int(header[2], 10))
+            self._datapipe.read(1)
             if header[1] == b'commit':
                 lines = data.split(b'\n')
                 tree = unhexlify(lines[0][5:45])
@@ -73,8 +76,7 @@ class Dump(object):
             elif header[1] == b'tree':
                 trees = []
                 blobs = []
-                for entry in self.tree_entries(data[:-1]):
-                    o_binsha = entry[-20:]
+                for entry, o_binsha in self.tree_entries(data):
                     if entry[5] == 32:
                         trees.append(o_binsha)
                     elif entry[6] == 32:
