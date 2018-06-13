@@ -45,7 +45,7 @@ class Source(object):
 
     def find_backrefs(self):
         self.commits = bitarray_defaultdict(len(self.blobs))
-        for index, binsha in tqdm(enumerate(self.blobs), unit='blob', total=len(self.blobs)):
+        for index, binsha in tqdm(enumerate(self.blobs), unit='blob', desc='Building bitmaps', total=len(self.blobs)):
             for c in self.backrefs.commits_for_object(binsha):
                 self.commits[c][index] = True
 
