@@ -1,7 +1,9 @@
 import pathlib
 import subprocess
 
-from gitxref.dump import Dump
+from tqdm import tqdm
+
+from gitxref.batch import Batch
 
 
 class GitCmd(object):
@@ -28,8 +30,6 @@ class Repo(object):
 
     @property
     def objects(self):
-        with Dump(self) as d:
-            yield from d.objects()
+        with Batch(self, types=['t', 'c']) as d:
+            yield from tqdm(d, unit='object')
 
-if __name__ == '__main__':
-    count()

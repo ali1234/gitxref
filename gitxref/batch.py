@@ -2,47 +2,22 @@ import subprocess
 
 from binascii import unhexlify
 
+from gitxref.batchcheck import BatchCheck
 
-class Dump(object):
+
+class Batch(BatchCheck):
 
     """
-    Implements the following shell pipeline to dump objects:
+    Extends the BatchCheck pipeline with the following:
 
-        cat-file --buffer --batch-check='%(objecttype) %(objectname)' --batch-all-objects | grep -E \(^t\|^c\) | cut -d \  -f 2 | git cat-file --buffer --batch
+         | git cat-file --buffer --batch
+
+    and then parses the results into objects.
     """
 
-    def __init__(self, repo):
-        self._repo = repo
-
-    def __enter__(self):
-        git_base = ['git', '-C', str(self._repo.git_dir), 'cat-file', '--buffer']
-
-        pipeline = [
-            git_base + ['--batch-check=%(objecttype) %(objectname)', '--batch-all-objects'],
-            ['grep', '-E', '(^c|^t)'],
-            ['cut', '-d', ' ', '-f', '2'],
-            git_base + ['--batch']
-        ]
-
-        self._datapipe = None
-        self._procs = []
-
-        for p in pipeline:
-            proc = subprocess.Popen(p, stdin=self._datapipe, stdout=subprocess.PIPE)
-            self._datapipe = proc.stdout
-            self._procs.append(proc)
-
-        return self
-
-    def __exit__(self, *args):
-        for p in self._procs:
-            p.terminate()
-        for p in self._procs:
-            p.wait(timeout=3)
-        for p in self._procs:
-            p.kill()
-        for p in self._procs:
-            p.wait()
+    def __init__(self, repo, types=None):
+        super().__init__(repo, types=types)
+        self._pipeline.append(self.git_base + ['--batch'])
 
     def tree_entries(self, data):
         last = 0
@@ -53,7 +28,7 @@ class Dump(object):
             yield data[last:offs], data[offs+1:offs+21]
             last = offs + 21
 
-    def objects(self):
+    def __iter__(self):
 
         while True:
             header = self._datapipe.readline().strip().split()

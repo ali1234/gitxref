@@ -2,8 +2,6 @@ import hashlib
 import pickle
 from collections import defaultdict
 
-from gitxref.util import b2h
-
 
 class Backrefs(object):
 
@@ -16,11 +14,10 @@ class Backrefs(object):
     The back references are cached and invalidated if for_each_ref changed.
     """
 
-    def __init__(self, repo, skip_cache=False, rebuild=False, threads=1):
+    def __init__(self, repo, skip_cache=False, rebuild=False):
         self.repo = repo
-        self.threads = threads
         if skip_cache:
-            self.backrefs, self.commit_parents = self.generate()
+            self.backrefs,self.commit_parents = self.generate()
         else:
             self.backrefs,self.commit_parents = self.load(rebuild)
 
@@ -83,12 +80,6 @@ class Backrefs(object):
 
         return backrefs, commit_parents
 
-    def __contains__(self, binsha):
-        """
-        Checks if the given binsha is known in the backrefs database.
-        """
-        return binsha in self.backrefs
-
     def commits_fetch(self, l):
         for i in l:
             if type(i) is bytes:
@@ -102,17 +93,3 @@ class Backrefs(object):
         """
         if binsha in self.backrefs:
             yield from self.commits_fetch(self.backrefs[binsha])
-
-    def all_parents(self, binsha, binshas=None):
-        if binshas is None or binsha in binshas:
-            yield binsha
-        for p in self.commit_parents[binsha]:
-            yield from self.all_parents(p, binshas)
-
-    def root_commits(self, binsha):
-        print(b2h(binsha), self.commit_parents[binsha])
-        if len(self.commit_parents[binsha]) == 0:
-            yield binsha
-        else:
-            for p in self.commit_parents[binsha]:
-                yield from self.root_commits(p)

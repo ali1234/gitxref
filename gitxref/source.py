@@ -1,7 +1,26 @@
+import hashlib
+from collections import defaultdict
+
 from bitarray import bitarray
+from tqdm import tqdm
 
 from gitxref.bitmaps import Bitmaps
-from gitxref.util import b2h, bitarray_defaultdict, hashblob, bitarray_zero
+
+
+def hashblob(f):
+    h = hashlib.sha1()
+    h.update(b'blob %d\0' % f.stat().st_size)
+    h.update(f.read_bytes())
+    return h.digest()
+
+def bitarray_zero(length):
+    b = bitarray(length, endian='big')
+    b[:] = False
+    return b
+
+
+def bitarray_defaultdict(length):
+    return defaultdict(lambda: bitarray_zero(length))
 
 
 class Source(object):
@@ -25,16 +44,13 @@ class Source(object):
         self.blob_index = {k:v for v,k in enumerate(self.blobs)}
 
     def find_backrefs(self):
-        count = 0
         self.commits = bitarray_defaultdict(len(self.blobs))
-        for index, binsha in enumerate(self.blobs):
+        for index, binsha in tqdm(enumerate(self.blobs), unit='blob', total=len(self.blobs)):
             for c in self.backrefs.commits_for_object(binsha):
                 self.commits[c][index] = True
-            count += 1
-            print('Blobs checked: {:6d}/{:d} Commits seen: {:7d}'.format(count, len(self.blobs), len(self.commits)), self.paths[index])
 
-    def make_bitmaps(self, threads=None):
-        with Bitmaps(self.repo, threads) as bm:
+    def make_bitmaps(self, processes=None):
+        with Bitmaps(self.repo, processes=processes) as bm:
             self.commits = bm.build(self.blob_index)
 
     def find_best(self):
