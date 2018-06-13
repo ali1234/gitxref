@@ -2,6 +2,8 @@ import hashlib
 import pickle
 from collections import defaultdict
 
+from tqdm import tqdm
+
 
 class Backrefs(object):
 
@@ -57,14 +59,12 @@ class Backrefs(object):
         """
         Regenerates the backrefs from the repo data.
         """
-        print('Regenerating backrefs database. This may take a few minutes.')
-
         backrefs = defaultdict(list)
         trees = defaultdict(list)
         commit_parents = defaultdict(list)
         typecount = defaultdict(int)
 
-        for obj_type, obj_binsha, x in self.repo.objects:
+        for obj_type, obj_binsha, x in tqdm(self.repo.objects, unit=' objects', desc='Scanning repository metadata'):
             typecount[obj_type] += 1
 
             if obj_type == b'commit':

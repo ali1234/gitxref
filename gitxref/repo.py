@@ -31,5 +31,5 @@ class Repo(object):
     @property
     def objects(self):
         with Batch(self, types=['t', 'c']) as d:
-            yield from tqdm(d, unit='object')
+            yield from d
 
