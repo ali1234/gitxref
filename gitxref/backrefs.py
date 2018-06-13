@@ -5,6 +5,15 @@ from collections import defaultdict
 from tqdm import tqdm
 
 
+def list_opt(l):
+    count = 0
+    for n in range(len(l)):
+        while type(l[n]) is list and len(l[n]) == 1:
+            l[n] = l[n][0]
+            count += 1
+    return count
+
+
 class Backrefs(object):
 
     """
@@ -79,6 +88,13 @@ class Backrefs(object):
                     backrefs[binsha].append(trees[obj_binsha])
 
         print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()))
+
+        count = sum(list_opt(v) for v in tqdm(trees.values(), unit=' trees', desc='Optimizing trees'))
+        print(count, 'singular references removed.')
+        count = sum(list_opt(v) for v in tqdm(backrefs.values(), unit=' blobs', desc='Optimizing blobs'))
+        print(count, 'singular references removed.')
+
+        #backrefs = dict((k, v[0] if len(v) == 1 else v) for k, v in tqdm(backrefs.items(), unit=' blobs', desc='Getting blob trees'))
 
         return backrefs, commit_parents
 
