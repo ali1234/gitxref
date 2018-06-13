@@ -94,4 +94,6 @@ class Backrefs(object):
         Gets all the commits containing a blob.
         """
         if binsha in self.backrefs:
-            yield from self.commits_fetch(self.backrefs[binsha])
+            return self.commits_fetch(self.backrefs[binsha])
+        else:
+            return []
