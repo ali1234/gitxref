@@ -41,12 +41,14 @@ class Backrefs(object):
                 if old == hash:
                     try:
                         with backrefs_file.open('rb') as f:
+                            print('Loading backrefs cache.')
                             return pickle.load(f)
                     except:
                         pass
 
         db = self.generate()
         with backrefs_file.open('wb') as f:
+            print('Saving backrefs cache.')
             pickle.dump(db, f)
         check_file.write_bytes(hash)
         return db
