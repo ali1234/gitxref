@@ -30,6 +30,6 @@ class Repo(object):
 
     @property
     def objects(self):
-        with Batch(self, types=['t', 'c']) as d:
+        with Batch(self, types=['tr', 'c']) as d:
             yield from d
 
