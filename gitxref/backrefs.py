@@ -1,8 +1,11 @@
 import hashlib
+import itertools
 import pickle
 from collections import defaultdict
 
 from tqdm import tqdm
+
+from gitxref.cache import Cache
 
 
 def list_opt(l):
@@ -27,42 +30,20 @@ class Backrefs(object):
 
     def __init__(self, repo, skip_cache=False, rebuild=False):
         self.repo = repo
-        if skip_cache:
-            self.backrefs,self.commit_parents = self.generate()
+        self._cache = Cache(self.repo)
+
+        if skip_cache or rebuild:
+            data = self.generate()
+            if not skip_cache:
+                self._cache['backrefs'] = data
         else:
-            self.backrefs,self.commit_parents = self.load(rebuild)
+            try:
+                data = self._cache['backrefs']
+            except KeyError:
+                data = self.generate()
+                self._cache['backrefs'] = data
 
-    def check(self):
-        """
-        Check the hash of git for_each_ref. If this changed, the cache is invalid.
-        """
-        return hashlib.sha1(self.repo.git.for_each_ref()).digest()
-
-    def load(self, rebuild=False):
-        """
-        Attempts to load the backrefs from the cache, or regenerate it if there is
-        a problem.
-        """
-        hash = self.check()
-        check_file = (self.repo.git_dir / 'backrefs.checksum')
-        backrefs_file = (self.repo.git_dir / 'backrefs.pickle')
-        if not rebuild:
-            if check_file.is_file():
-                old = check_file.read_bytes()
-                if old == hash:
-                    try:
-                        with backrefs_file.open('rb') as f:
-                            print('Loading backrefs cache.')
-                            return pickle.load(f)
-                    except:
-                        pass
-
-        db = self.generate()
-        with backrefs_file.open('wb') as f:
-            print('Saving backrefs cache.')
-            pickle.dump(db, f)
-        check_file.write_bytes(hash)
-        return db
+        self.backrefs, self.commit_parents = data
 
     def generate(self):
         """
