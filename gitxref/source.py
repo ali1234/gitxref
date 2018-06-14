@@ -14,10 +14,9 @@ def hashblob(f):
     return h.digest()
 
 def bitarray_zero(length):
-    b = bitarray(length, endian='big')
-    b[:] = False
+    b = bitarray(length)
+    b.setall(0)
     return b
-
 
 def bitarray_defaultdict(length):
     return defaultdict(lambda: bitarray_zero(length))
@@ -47,7 +46,7 @@ class Source(object):
         self.commits = bitarray_defaultdict(len(self.blobs))
         for index, binsha in tqdm(enumerate(self.blobs), unit='blob', desc='Building bitmaps', total=len(self.blobs)):
             for c in self.backrefs.commits_for_object(binsha):
-                self.commits[c][index] = True
+                self.commits[c][index] = 1
 
     def make_bitmaps(self, processes=None):
         with Bitmaps(self.repo, processes=processes) as bm:
@@ -55,9 +54,9 @@ class Source(object):
 
     def find_best(self):
         unfound = bitarray(len(self.blobs))
-        unfound[:] = True
+        unfound.setall(1)
 
-        best = sorted(self.commits.items(), key=lambda x: sum(x[1]&unfound), reverse=True)
+        best = sorted(self.commits.items(), key=lambda x: (x[1]&unfound).count(), reverse=True)
 
         while len(best):
             yield (best[0][0], best[0][1]&unfound)
@@ -65,7 +64,7 @@ class Source(object):
 
             # old way - evaluates sum(x[1]&unfound) twice
             best = list(filter(lambda x: sum(x[1]&unfound) > 0, best[1:]))
-            best.sort(key=lambda x: sum(x[1]&unfound), reverse=True)
+            best.sort(key=lambda x: (x[1]&unfound).count(), reverse=True)
 
             # new
             #d = ((sum(x[1]&unfound), x) for x in best[1:])
