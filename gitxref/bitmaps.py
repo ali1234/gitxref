@@ -7,6 +7,9 @@ from tqdm import tqdm
 
 from gitxref.batchcheck import BatchCheck
 
+#
+# Unused code!
+#
 
 class BitmapThread(object):
     def __init__(self, blob_index, path):

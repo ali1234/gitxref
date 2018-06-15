@@ -1,10 +1,6 @@
 import hashlib
-from collections import defaultdict
 
 from bitarray import bitarray
-from tqdm import tqdm
-
-from gitxref.bitmaps import Bitmaps
 
 
 def hashblob(f):
@@ -13,21 +9,12 @@ def hashblob(f):
     h.update(f.read_bytes())
     return h.digest()
 
-def bitarray_zero(length):
-    b = bitarray(length)
-    b.setall(0)
-    return b
-
-def bitarray_defaultdict(length):
-    return defaultdict(lambda: bitarray_zero(length))
-
 
 class Source(object):
 
-    def __init__(self, repo, directory, backrefs):
+    def __init__(self, repo, directory):
         self.repo = repo
         self.directory = directory
-        self.backrefs = backrefs
         self.blobs = set()
         self.paths = {}
 
@@ -42,15 +29,8 @@ class Source(object):
 
         self.blob_index = {k:v for v,k in enumerate(self.blobs)}
 
-    def find_backrefs(self):
-        self.commits = bitarray_defaultdict(len(self.blobs))
-        for index, binsha in tqdm(enumerate(self.blobs), unit='blob', desc='Building bitmaps', total=len(self.blobs)):
-            for c in self.backrefs.commits_for_object(binsha):
-                self.commits[c][index] = 1
-
-    def make_bitmaps(self, processes=None):
-        with Bitmaps(self.repo, processes=processes) as bm:
-            self.commits = bm.build(self.blob_index)
+    def make_bitmaps(self, graph):
+        self.commits = graph.make_bitmaps(self.blobs)
 
     def find_best(self):
         unfound = bitarray(len(self.blobs))
