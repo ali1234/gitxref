@@ -1,5 +1,6 @@
 import hashlib
 
+import numpy as np
 from bitarray import bitarray
 
 
@@ -8,6 +9,10 @@ def hashblob(f):
     h.update(b'blob %d\0' % f.stat().st_size)
     h.update(f.read_bytes())
     return h.digest()
+
+
+def andcount(a, b):
+    return np.sum(np.unpackbits((a&b)))
 
 
 class Source(object):
@@ -33,26 +38,18 @@ class Source(object):
         self.commits = graph.make_bitmaps(self.blobs)
 
     def find_best(self):
-        unfound = bitarray(len(self.blobs))
-        unfound.setall(1)
+        unfound = np.empty(((len(self.blobs)+7)//8,), dtype=np.uint8)
+        unfound[:] = 0xff
 
-        best = sorted(self.commits.items(), key=lambda x: (x[1]&unfound).count(), reverse=True)
+        keyfunc = lambda x: np.sum(np.unpackbits((x[1]&unfound)))
+
+        best = sorted(self.commits.items(), key=keyfunc, reverse=True)
 
         while len(best):
             yield (best[0][0], best[0][1]&unfound)
             unfound &= ~best[0][1]
-
-            # old way - evaluates sum(x[1]&unfound) twice
-            best = list(filter(lambda x: sum(x[1]&unfound) > 0, best[1:]))
-            best.sort(key=lambda x: (x[1]&unfound).count(), reverse=True)
-
-            # new
-            #d = ((sum(x[1]&unfound), x) for x in best[1:])
-            #s = sorted(filter(lambda x: x[0] > 0, d))
-            #best = [x[1] for x in s]
-
-
-
+            best = list(filter(lambda x: keyfunc(x) > 0, best[1:]))
+            best.sort(key=keyfunc, reverse=True)
 
         yield (None, unfound)
         return
@@ -61,4 +58,5 @@ class Source(object):
         if type(arg) == int:
             return (self.blobs[arg], self.paths[self.blobs[arg]])
         else:
+            arg = np.unpackbits(arg)
             yield from ((self.blobs[x], self.paths[self.blobs[x]]) for x,t in enumerate(arg[:len(self.blobs)]) if t)

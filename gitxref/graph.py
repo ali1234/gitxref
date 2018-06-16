@@ -105,7 +105,7 @@ class Graph(object):
             topo = self.topo_sort(blobs[i:i+step])
             for n, v in enumerate(blobs[i:i+step]):
                 self.blobs[v].bitmap = np.zeros((b_step,), dtype=np.uint8)
-                self.blobs[v].bitmap[n//8] = 1<<(n%8)
+                self.blobs[v].bitmap[n//8] = 128>>(n%8)
 
             for v in tqdm(topo, unit=' vertices', desc='Making bitmaps'):
                 if type(v) is not Vertex:

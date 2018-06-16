@@ -2,6 +2,7 @@ import argparse
 import binascii
 import pathlib
 
+import numpy as np
 
 from gitxref.graph import Graph
 from gitxref.repo import Repo
@@ -34,10 +35,10 @@ def main():
     source.make_bitmaps(graph)
 
     # this part is still slow :(
-    #for best, bits in source.find_best():
-    #    print('Unfound:' if best is None else binascii.hexlify(best).decode('utf8'), sum(bits))
-    #    for binsha, path in source[bits]:
-    #        print('    ', path)
+    for best, bits in source.find_best():
+        print('Unfound:' if best is None else binascii.hexlify(best).decode('utf8'), np.sum(np.unpackbits((bits))))
+        for binsha, path in source[bits]:
+            print('    ', path)
 
 
 if __name__ == '__main__':
