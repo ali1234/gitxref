@@ -20,8 +20,8 @@ def main():
                         help='Force rebuild of the graph cache.')
     parser.add_argument('-s', '--skip-cache', action='store_true',
                         help="Don't load or save the graph cache (implies -r).")
-    parser.add_argument('-p', '--processes', type=int, default=None,
-                        help="Number of worker processes. '0' to disable multiprocessing.")
+    #parser.add_argument('-p', '--processes', type=int, default=None,
+    #                    help="Number of worker processes. '0' to disable multiprocessing.")
 
 
     args = parser.parse_args()
