@@ -11,10 +11,6 @@ def hashblob(f):
     return h.digest()
 
 
-def andcount(a, b):
-    return np.sum(np.unpackbits((a&b)))
-
-
 class Source(object):
 
     def __init__(self, repo, directory):
