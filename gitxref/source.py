@@ -40,6 +40,10 @@ class Source(object):
     def find_best(self):
         unfound = np.empty(((len(self.blobs)+7)//8,), dtype=np.uint8)
         unfound[:] = 0xff
+        extra = len(self.blobs)%8
+        if extra: # zero the unused bits of unfound
+            for i in range(extra,8):
+                unfound[-1] -= 128>>i
 
         keyfunc = lambda x: np.sum(np.unpackbits((x[1]&unfound)))
 
