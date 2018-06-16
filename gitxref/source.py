@@ -2,6 +2,7 @@ import hashlib
 
 import numpy as np
 from bitarray import bitarray
+from tqdm import tqdm
 
 
 def hashblob(f):
@@ -47,20 +48,22 @@ class Source(object):
 
         keyfunc = lambda x: np.sum(np.unpackbits((x[1]&unfound)))
 
-        best = sorted(self.commits.items(), key=keyfunc, reverse=True)
+        best = sorted(tqdm(self.commits.items(), unit=' commits', desc='Sorting required commits'), key=keyfunc, reverse=True)
 
-        while len(best):
-            yield (best[0][0], best[0][1]&unfound)
-            unfound &= ~best[0][1]
-            best = list(filter(lambda x: keyfunc(x) > 0, best[1:]))
-            best.sort(key=keyfunc, reverse=True)
-
-        yield (None, unfound)
-        return
+        with tqdm(total=len(self.blobs), unit=' blobs', desc='Finding best commits') as pbar:
+            while len(best):
+                inbest = best[0][1]&unfound
+                pbar.update(np.sum(np.unpackbits(inbest)))
+                yield (best[0][0], inbest)
+                unfound &= ~best[0][1]
+                best = list(filter(lambda x: keyfunc(x) > 0, best[1:]))
+                best.sort(key=keyfunc, reverse=True)
+            pbar.update(np.sum(np.unpackbits(unfound)))
+            yield (None, unfound)
 
     def __getitem__(self, arg):
         if type(arg) == int:
             return (self.blobs[arg], self.paths[self.blobs[arg]])
         else:
             arg = np.unpackbits(arg)
-            yield from ((self.blobs[x], self.paths[self.blobs[x]]) for x,t in enumerate(arg[:len(self.blobs)]) if t)
+            yield from ((self.paths[self.blobs[x]], self.blobs[x]) for x,t in enumerate(arg[:len(self.blobs)]) if t)

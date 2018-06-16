@@ -37,7 +37,7 @@ def main():
     # this part is still slow :(
     for best, bits in source.find_best():
         print('Unfound:' if best is None else binascii.hexlify(best).decode('utf8'), np.sum(np.unpackbits((bits))))
-        for binsha, path in source[bits]:
+        for path, binsha in sorted(source[bits]):
             print('    ', path)
 
 
