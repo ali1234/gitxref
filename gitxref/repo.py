@@ -1,8 +1,6 @@
 import pathlib
 import subprocess
 
-from tqdm import tqdm
-
 from gitxref.batch import Batch
 
 

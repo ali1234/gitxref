@@ -1,7 +1,6 @@
 import hashlib
 
 import numpy as np
-from bitarray import bitarray
 from tqdm import tqdm
 
 
