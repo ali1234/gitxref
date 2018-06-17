@@ -1,4 +1,5 @@
 import hashlib
+from collections import defaultdict
 
 import numpy as np
 from tqdm import tqdm
@@ -43,7 +44,11 @@ class Source(object):
 
         keyfunc = lambda x: np.sum(np.unpackbits((x[1]&unfound)))
 
-        best = sorted(tqdm(self.commits.items(), unit=' commits', desc='Sorting required commits'), key=keyfunc, reverse=True)
+        commit_sets = defaultdict(list)
+        for commit, array in tqdm(self.commits.items(), unit=' commits', desc='Grouping commits'):
+            commit_sets[array.tobytes()].append(commit)
+
+        best = sorted(((v[0], np.frombuffer(k, dtype=np.uint8)) for k, v in commit_sets.items()), key=keyfunc)
 
         with tqdm(total=len(self.blobs), unit=' blobs', desc='Finding best commits') as pbar:
             while len(best):

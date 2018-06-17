@@ -10,7 +10,6 @@ from gitxref.source import Source
 
 
 def main():
-
     parser = argparse.ArgumentParser(description='Git x ref.')
     parser.add_argument('repository', metavar='repository', type=pathlib.Path,
                         help='Path to Git repository.')
@@ -23,7 +22,6 @@ def main():
     #parser.add_argument('-p', '--processes', type=int, default=None,
     #                    help="Number of worker processes. '0' to disable multiprocessing.")
 
-
     args = parser.parse_args()
     repo = Repo(args.repository)
     graph = Graph(repo, skip_cache=args.skip_cache, rebuild=args.rebuild)
@@ -34,7 +32,6 @@ def main():
     source = Source(repo, args.directory)
     source.make_bitmaps(graph)
 
-    # this part is still slow :(
     for best, bits in source.find_best():
         print('Unfound:' if best is None else binascii.hexlify(best).decode('utf8'), np.sum(np.unpackbits((bits))))
         for path, binsha in sorted(source[bits]):
@@ -42,6 +39,6 @@ def main():
 
 
 if __name__ == '__main__':
-    #import cProfile
-    #cProfile.run('main()')
+    # import cProfile
+    # cProfile.run('main()')
     main()
