@@ -124,8 +124,8 @@ class Graph(object):
                 del v.bitmap
 
         # group all found commits with the same bitmap.
-        commit_sets = defaultdict(list)
+        commit_groups = defaultdict(list)
         for commit, array in tqdm(commits.items(), unit=' commits', desc='Grouping commits'):
-            commit_sets[array.tobytes()].append(commit)
+            commit_groups[array.tobytes()].append(commit)
 
-        return ((v[0], np.frombuffer(k, dtype=np.uint8)) for k, v in commit_sets.items())
+        return list((v, np.frombuffer(k, dtype=np.uint8)) for k, v in commit_groups.items())
