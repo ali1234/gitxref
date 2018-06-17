@@ -44,6 +44,9 @@ class Graph(object):
 
         self.blobs = data
 
+    def __contains__(self, item):
+        return item in self.blobs
+
     def generate(self):
         blobs = defaultdict(Vertex)
         trees = defaultdict(Vertex)
