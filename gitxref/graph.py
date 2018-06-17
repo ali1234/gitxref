@@ -11,7 +11,7 @@ class Vertex(list):
     """
     This is exactly like a list, but hashable and equal only to itself.
     """
-    __slots__ = ('bitmap')
+    __slots__ = ('bitmap',)
 
     def __hash__(self):
         return id(self)
