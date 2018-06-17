@@ -1,4 +1,5 @@
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 import numpy as np
 from tqdm import tqdm
@@ -74,11 +75,10 @@ class Graph(object):
         return dict(blobs)
 
     def _topo_visit(self, vertex, result_list, visited_set):
-        if vertex in visited_set:
+        if type(vertex) is not Vertex or vertex in visited_set:
             return
-        if type(vertex) is Vertex:
-            for v in vertex:
-                self._topo_visit(v, result_list, visited_set)
+        for v in vertex:
+            self._topo_visit(v, result_list, visited_set)
         visited_set.add(vertex)
         result_list.append(vertex)
 
@@ -111,8 +111,6 @@ class Graph(object):
                     self.blobs[v].bitmap[n//8] = 128>>(n%8)
 
             for v in tqdm(topo, unit=' vertices', desc='Making bitmaps'):
-                if type(v) is not Vertex:
-                    continue
                 for vv in v:
                     if type(vv) is Vertex:
                         try:
