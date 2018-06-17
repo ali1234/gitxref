@@ -25,7 +25,7 @@ class Cache(object):
         try:
             with cache_file.open('rb') as f:
                 return pickle.load(f)
-        except:
+        except Exception:
             raise KeyError
 
     def __setitem__(self, item, value):
