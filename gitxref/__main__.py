@@ -30,9 +30,7 @@ def main():
         return
 
     source = Source(repo, args.directory)
-    source.make_bitmaps(graph)
-
-    for best, bits in source.find_best():
+    for best, bits in source.find_best(graph):
         print('Unfound:' if best is None else binascii.hexlify(best).decode('utf8'), np.sum(np.unpackbits((bits))))
         for path, binsha in sorted(source[bits]):
             print('    ', path)

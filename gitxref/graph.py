@@ -91,16 +91,17 @@ class Graph(object):
             self._topo_visit(self.blobs[v], result_list, visited_set)
         return result_list[::-1]
 
-    def make_bitmaps(self, blobs, step=None):
+    def bitmaps(self, blobs, step=None):
+        """Returns an iter yielding (commit, bitmap) tuples."""
         if step is None:
             step = len(blobs)
         elif step % 8:
             raise ValueError('step must be a multiple of 8 or None.')
-        b_step = (step+7)//8
 
         commits = defaultdict(lambda: np.zeros(((len(blobs)+7)//8,), dtype=np.uint8))
 
         for i in range(0, len(blobs), step):
+            b_step = (min(len(blobs)-i, step) + 7) // 8
             b_i = i//8
             topo = self.topo_sort(blobs[i:i+step])
             for n, v in enumerate(blobs[i:i+step]):
@@ -120,4 +121,9 @@ class Graph(object):
                         commits[vv][b_i:b_i+b_step] |= v.bitmap
                 del v.bitmap
 
-        return commits
+        # group all found commits with the same bitmap.
+        commit_sets = defaultdict(list)
+        for commit, array in tqdm(commits.items(), unit=' commits', desc='Grouping commits'):
+            commit_sets[array.tobytes()].append(commit)
+
+        return ((v[0], np.frombuffer(k, dtype=np.uint8)) for k, v in commit_sets.items())

@@ -1,5 +1,4 @@
 import hashlib
-from collections import defaultdict
 
 import numpy as np
 from tqdm import tqdm
@@ -31,24 +30,14 @@ class Source(object):
 
         self.blob_index = {k:v for v,k in enumerate(self.blobs)}
 
-    def make_bitmaps(self, graph):
-        self.commits = graph.make_bitmaps(self.blobs)
-
-    def find_best(self):
+    def find_best(self, graph):
         unfound = np.empty(((len(self.blobs)+7)//8,), dtype=np.uint8)
         unfound[:] = 0xff
-        extra = len(self.blobs)%8
-        if extra: # zero the unused bits of unfound
-            for i in range(extra,8):
-                unfound[-1] -= 128>>i
+        unfound[-1] = ((0xff << ((8 - (len(self.blobs) % 8)) %8)) & 0xff)
 
-        keyfunc = lambda x: np.sum(np.unpackbits((x[1]&unfound)))
+        keyfunc = lambda x: np.sum(np.unpackbits(x[1] & unfound))
 
-        commit_sets = defaultdict(list)
-        for commit, array in tqdm(self.commits.items(), unit=' commits', desc='Grouping commits'):
-            commit_sets[array.tobytes()].append(commit)
-
-        best = sorted(((v[0], np.frombuffer(k, dtype=np.uint8)) for k, v in commit_sets.items()), key=keyfunc)
+        best = sorted(graph.bitmaps(self.blobs, step=16384), key=keyfunc)
 
         with tqdm(total=len(self.blobs), unit=' blobs', desc='Finding best commits') as pbar:
             while len(best):
@@ -63,7 +52,7 @@ class Source(object):
 
     def __getitem__(self, arg):
         if type(arg) == int:
-            return (self.blobs[arg], self.paths[self.blobs[arg]])
+            return (self.paths[self.blobs[arg]], self.blobs[arg])
         else:
-            arg = np.unpackbits(arg)
-            yield from ((self.paths[self.blobs[x]], self.blobs[x]) for x,t in enumerate(arg[:len(self.blobs)]) if t)
+            nz = np.flatnonzero(np.unpackbits(arg))
+            return ((self.paths[self.blobs[x]], self.blobs[x]) for x in nz)
