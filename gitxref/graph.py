@@ -71,7 +71,7 @@ class Graph(object):
         for v in tqdm(blobs.values(), unit=' blobs', desc='Reducing blobs'):
             v.reduce()
 
-        return blobs
+        return dict(blobs)
 
     def _topo_visit(self, vertex, result_list, visited_set):
         if vertex in visited_set:
@@ -88,7 +88,8 @@ class Graph(object):
         result_list = list()
 
         for v in tqdm(sources, unit=' sources', desc='Topological sort'):
-            self._topo_visit(self.blobs[v], result_list, visited_set)
+            if v in self.blobs:
+                self._topo_visit(self.blobs[v], result_list, visited_set)
         return result_list[::-1]
 
     def bitmaps(self, blobs, step=None):
@@ -105,8 +106,9 @@ class Graph(object):
             b_i = i//8
             topo = self.topo_sort(blobs[i:i+step])
             for n, v in enumerate(blobs[i:i+step]):
-                self.blobs[v].bitmap = np.zeros((b_step,), dtype=np.uint8)
-                self.blobs[v].bitmap[n//8] = 128>>(n%8)
+                if v in self.blobs:
+                    self.blobs[v].bitmap = np.zeros((b_step,), dtype=np.uint8)
+                    self.blobs[v].bitmap[n//8] = 128>>(n%8)
 
             for v in tqdm(topo, unit=' vertices', desc='Making bitmaps'):
                 if type(v) is not Vertex:

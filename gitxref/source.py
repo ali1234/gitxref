@@ -37,7 +37,7 @@ class Source(object):
 
         keyfunc = lambda x: np.sum(np.unpackbits(x[1] & unfound))
 
-        best = sorted(graph.bitmaps(self.blobs, step=16384), key=keyfunc)
+        best = sorted(graph.bitmaps(self.blobs), key=keyfunc)
 
         with tqdm(total=len(self.blobs), unit=' blobs', desc='Finding best commits') as pbar:
             while len(best):
