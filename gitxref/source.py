@@ -28,8 +28,6 @@ class Source(object):
 
         self.blobs = list(self.blobs)
 
-        self.blob_index = {k:v for v,k in enumerate(self.blobs)}
-
     def find_best(self, graph):
         unfound = np.empty(((len(self.blobs)+7)//8,), dtype=np.uint8)
         unfound[:] = 0xff
