@@ -97,7 +97,7 @@ class Graph(object):
 
     def bitmaps(self, blobs, step=None):
         """Returns an iter yielding (commit, bitmap) tuples."""
-        if step is None:
+        if step is None or step > len(blobs):
             step = len(blobs)
         elif step % 8:
             raise ValueError('step must be a multiple of 8 or None.')
