@@ -19,10 +19,15 @@ class Vertex(list):
     def __eq__(self, other):
         return id(self) == id(other)
 
+    def _reduce_inner(self):
+        if type(self[0]) is Vertex and len(self[0]) == 1:
+            self[0] = self[0]._reduce_inner()
+        return self[0]
+
     def reduce(self):
-        for n in range(len(self)):
-            while type(self[n]) is Vertex and len(self[n]) == 1:
-                self[n] = self[n][0]
+        for n, vv in enumerate(self):
+            if type(vv) is Vertex and len(vv) == 1:
+                self[n] = vv[0]
 
 
 class Graph(object):
