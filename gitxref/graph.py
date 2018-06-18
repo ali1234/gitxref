@@ -104,7 +104,11 @@ class Graph(object):
 
         commits = defaultdict(lambda: np.zeros(((len(blobs)+7)//8,), dtype=np.uint8))
 
-        for i in range(0, len(blobs), step):
+        step_range = range(0, len(blobs), step)
+        if len(step_range) > 1:
+            step_range = tqdm(step_range, unit=' steps', desc='Making bitmaps')
+
+        for i in step_range:
             b_step = (min(len(blobs)-i, step) + 7) // 8
             b_i = i//8
             topo = self.topo_sort(blobs[i:i+step])
@@ -113,7 +117,7 @@ class Graph(object):
                     self.blobs[v].bitmap = np.zeros((b_step,), dtype=np.uint8)
                     self.blobs[v].bitmap[n//8] = 128>>(n%8)
 
-            for v in tqdm(topo, unit=' vertices', desc='Making bitmaps'):
+            for v in tqdm(topo, unit=' vertices', desc='Pushing sub-bitmaps'):
                 for vv in v:
                     if type(vv) is Vertex:
                         try:
