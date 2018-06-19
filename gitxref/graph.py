@@ -1,10 +1,7 @@
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 import numpy as np
 from tqdm import tqdm
-
-from gitxref.cache import Cache
 
 
 class Vertex(list):
@@ -32,27 +29,21 @@ class Vertex(list):
 
 class Graph(object):
 
-    def __init__(self, repo, skip_cache=False, rebuild=False):
+    def __init__(self, repo):
         self._repo = repo
-        self._cache = Cache(self._repo)
 
-        if skip_cache or rebuild:
-            data = self.generate()
-            if not skip_cache:
-                self._cache['graph'] = data
+        if 'graph' in repo.cache:
+            data = self._repo.cache['graph']
         else:
-            try:
-                data = self._cache['graph']
-            except KeyError:
-                data = self.generate()
-                self._cache['graph'] = data
+            data = self._generate()
+            self._repo.cache['graph'] = data
 
         self.blobs = data
 
     def __contains__(self, item):
         return item in self.blobs
 
-    def generate(self):
+    def _generate(self):
         blobs = defaultdict(Vertex)
         trees = defaultdict(Vertex)
         typecount = defaultdict(int)

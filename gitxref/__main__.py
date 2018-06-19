@@ -23,8 +23,8 @@ def main():
     #                    help="Number of worker processes. '0' to disable multiprocessing.")
 
     args = parser.parse_args()
-    repo = Repo(args.repository)
-    graph = Graph(repo, skip_cache=args.skip_cache, rebuild=args.rebuild)
+    repo = Repo(args.repository, force_rebuild=args.rebuild, skip_cache=args.skip_cache)
+    graph = Graph(repo)
 
     if args.directory is None:
         return

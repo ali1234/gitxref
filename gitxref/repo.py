@@ -1,5 +1,8 @@
+import hashlib
 import pathlib
 import subprocess
+
+from gitxref.cache import Cache
 
 from gitxref.batch import Batch
 
@@ -13,10 +16,15 @@ class GitCmd(object):
 
 
 class Repo(object):
-    def __init__(self, path):
+    def __init__(self, path, **cache_args):
         self._path = pathlib.Path(path)
         self._git = GitCmd(str(path))
         self._git_dir = pathlib.Path(self._git.rev_parse('--absolute-git-dir').strip().decode('utf8'))
+        self._cache = Cache(self.git_dir, hashlib.sha1(self.git.for_each_ref()).digest(), **cache_args)
+
+    @property
+    def cache(self):
+        return self._cache
 
     @property
     def git_dir(self):
