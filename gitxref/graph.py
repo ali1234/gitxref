@@ -25,9 +25,9 @@ class Vertex(list):
         return self[0]
 
     def reduce(self):
-        for n, vv in enumerate(self):
-            if type(vv) is Vertex and len(vv) == 1:
-                self[n] = vv[0]
+        for n in range(len(self)):
+            if type(self[n]) is Vertex and len(self[n]) == 1:
+                self[n] = self[n]._reduce_inner()
 
 
 class Graph(object):
