@@ -10,8 +10,10 @@ from gitxref.graph import Graph
 from gitxref.repo import Repo
 from gitxref.source import Source
 
+
 def b2h(binsha):
     return binascii.hexlify(binsha).decode('utf8')
+
 
 def group_commits(bitmaps):
     """groups commits which contain the same blobs"""
