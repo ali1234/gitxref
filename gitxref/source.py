@@ -1,56 +1,68 @@
+import binascii
 import hashlib
 
-import numpy as np
 from tqdm import tqdm
 
 
-def hashblob(f):
-    h = hashlib.sha1()
-    h.update(b'blob %d\0' % f.stat().st_size)
-    h.update(f.read_bytes())
-    return h.digest()
+class Blob(object):
+
+    def __init__(self, f):
+        h = hashlib.sha1()
+        h.update(b'blob %d\0' % f.stat().st_size)
+        h.update(f.read_bytes())
+        self._binsha = h.digest()
+        self.paths = set()
+
+    def __hash__(self):
+        return hash(self._binsha)
+
+    def __eq__(self, other):
+        try:
+            return self._binsha == other._binsha
+        except AttributeError:
+            return self._binsha == other
+
+    def __str__(self):
+        return binascii.hexlify(self._binsha).decode('utf8')
+
+    @property
+    def binsha(self):
+        return self._binsha
 
 
 class Source(object):
 
-    def __init__(self, repo, directory):
-        self.repo = repo
-        self.directory = directory
-        self.blobs = set()
-        self.paths = {}
+    def __init__(self, root):
+        self._root = root
+        self._blobs = []
+        self._blob_index = {}
 
-        for f in directory.rglob('*'):
-            path = f.relative_to(directory)
+        files = list(root.rglob('*'))
+
+        for f in tqdm(files, unit=' blobs', desc='Hashing blobs'):
+            path = f.relative_to(root)
             if f.is_file() and not f.is_symlink():
-                binsha = hashblob(f)
-                self.blobs.add(binsha)
-                self.paths[binsha] = str(path)
+                b = Blob(f)
+                try:
+                    self._blob_index[b].paths.add(path)
+                except KeyError:
+                    b.paths.add(path)
+                    self._blob_index[b] = b
 
-        self.blobs = list(self.blobs)
+        self._blobs = list(self._blob_index.keys())
 
-    def find_best(self, graph):
-        unfound = np.empty(((len(self.blobs)+7)//8,), dtype=np.uint8)
-        unfound[:] = 0xff
-        unfound[-1] = ((0xff << ((8 - (len(self.blobs) % 8)) %8)) & 0xff)
+    def __contains__(self, item):
+        return item in self._blob_index
 
-        keyfunc = lambda x: np.sum(np.unpackbits(x[1] & unfound))
+    def __iter__(self):
+        return (b.binsha for b in self._blobs)
 
-        best = sorted(graph.bitmaps(self.blobs), key=keyfunc, reverse=True)
+    def __len__(self):
+        return len(self._blobs)
 
-        with tqdm(total=len(self.blobs), unit=' blobs', desc='Finding best commits') as pbar:
-            while len(best):
-                inbest = best[0][1]&unfound
-                pbar.update(np.sum(np.unpackbits(inbest)))
-                yield (best[0][0][0], inbest)
-                unfound &= ~best[0][1]
-                best = list(filter(lambda x: keyfunc(x) > 0, best[1:]))
-                best.sort(key=keyfunc, reverse=True)
-            pbar.update(np.sum(np.unpackbits(unfound)))
-            yield (None, unfound)
+    def __getitem__(self, item):
+        try:
+            return self._blobs[item]
+        except TypeError:
+            return self._blob_index[item]
 
-    def __getitem__(self, arg):
-        if type(arg) == int:
-            return (self.paths[self.blobs[arg]], self.blobs[arg])
-        else:
-            nz = np.flatnonzero(np.unpackbits(arg))
-            return ((self.paths[self.blobs[x]], self.blobs[x]) for x in nz)

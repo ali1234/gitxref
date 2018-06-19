@@ -91,24 +91,24 @@ class Graph(object):
                 self._topo_visit(self.blobs[v], result_list, visited_set)
         return result_list[::-1]
 
-    def bitmaps(self, blobs, step=None):
-        """Returns an iter yielding (commit, bitmap) tuples."""
-        if step is None or step > len(blobs):
-            step = len(blobs)
+    def bitmaps(self, source, step=None):
+        """Returns a dict of commit binsha => bitmap."""
+        if step is None or step > len(source):
+            step = len(source)
         elif step % 8:
             raise ValueError('step must be a multiple of 8 or None.')
 
-        commits = defaultdict(lambda: np.zeros(((len(blobs)+7)//8,), dtype=np.uint8))
+        bitmaps = defaultdict(lambda: np.zeros(((len(source) + 7) // 8,), dtype=np.uint8))
 
-        step_range = range(0, len(blobs), step)
+        step_range = range(0, len(source), step)
         if len(step_range) > 1:
             step_range = tqdm(step_range, unit=' steps', desc='Making bitmaps')
 
         for i in step_range:
-            b_step = (min(len(blobs)-i, step) + 7) // 8
+            b_step = (min(len(source) - i, step) + 7) // 8
             b_i = i//8
-            topo = self.topo_sort(blobs[i:i+step])
-            for n, v in enumerate(blobs[i:i+step]):
+            topo = self.topo_sort(source[i:i + step])
+            for n, v in enumerate(source[i:i + step]):
                 if v in self.blobs:
                     self.blobs[v].bitmap = np.zeros((b_step,), dtype=np.uint8)
                     self.blobs[v].bitmap[n//8] = 128>>(n%8)
@@ -121,12 +121,7 @@ class Graph(object):
                         except AttributeError:
                             vv.bitmap = v.bitmap.copy()
                     else:
-                        commits[vv][b_i:b_i+b_step] |= v.bitmap
+                        bitmaps[vv][b_i:b_i+b_step] |= v.bitmap
                 del v.bitmap
 
-        # group all found commits with the same bitmap.
-        commit_groups = defaultdict(list)
-        for commit, array in tqdm(commits.items(), unit=' commits', desc='Grouping commits'):
-            commit_groups[array.tobytes()].append(commit)
-
-        return list((v, np.frombuffer(k, dtype=np.uint8)) for k, v in commit_groups.items())
+        return dict(bitmaps)
