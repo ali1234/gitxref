@@ -1,3 +1,4 @@
+import sys
 from collections import defaultdict
 
 import numpy as np
@@ -63,8 +64,8 @@ class Graph(object):
                     blobs[binsha].append(trees[obj_binsha])
                 edges += len(x[0]) + len(x[1])
 
-        print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()))
-        print('Blobs:', len(blobs), 'Edges:', edges)
+        print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()), file=sys.stderr)
+        print('Blobs:', len(blobs), 'Edges:', edges, file=sys.stderr)
 
         for v in tqdm(trees.values(), unit=' trees', desc='Reducing trees'):
             v.reduce()
