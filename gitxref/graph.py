@@ -27,6 +27,15 @@ class Vertex(list):
             if type(self[n]) is Vertex and len(self[n]) == 1:
                 self[n] = self[n]._reduce_inner()
 
+    def topo_visit(self, result_list, visited_set):
+        if self in visited_set:
+            return
+        for v in self:
+            if type(v) is Vertex:
+                v.topo_visit(result_list, visited_set)
+        visited_set.add(self)
+        result_list.append(self)
+
 
 class Graph(object):
 
@@ -74,14 +83,6 @@ class Graph(object):
 
         return dict(blobs)
 
-    def _topo_visit(self, vertex, result_list, visited_set):
-        if type(vertex) is not Vertex or vertex in visited_set:
-            return
-        for v in vertex:
-            self._topo_visit(v, result_list, visited_set)
-        visited_set.add(vertex)
-        result_list.append(vertex)
-
     def topo_sort(self, sources):
         """Topo sorts the graph vertices reachable from sources."""
         visited_set = set()
@@ -89,7 +90,7 @@ class Graph(object):
 
         for v in tqdm(sources, unit=' sources', desc='Topological sort'):
             if v in self.blobs:
-                self._topo_visit(self.blobs[v], result_list, visited_set)
+                self.blobs[v].topo_visit(result_list, visited_set)
         return result_list[::-1]
 
     def bitmaps(self, source, step=None):
