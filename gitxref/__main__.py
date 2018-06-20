@@ -53,11 +53,11 @@ def main():
                         help="Don't load or save the cached metadata (implies -r).")
     parser.add_argument('-d', '--debugging', action='store_true',
                         help="Use extra caching for debugging.")
-    #parser.add_argument('-p', '--processes', type=int, default=None,
-    #                    help="Number of worker processes. '0' to disable multiprocessing.")
+    parser.add_argument('-p', '--processes', type=int, default=0,
+                        help="Number of worker processes. Default: 0 (disable multiprocessing).")
 
     args = parser.parse_args()
-    repo = Repo(args.repository, force_rebuild=args.rebuild, skip_cache=args.skip_cache)
+    repo = Repo(args.repository, force_rebuild=args.rebuild, skip_cache=args.skip_cache, processes=args.processes)
 
     if args.directory is None:
         if args.rebuild:
