@@ -28,10 +28,8 @@ class Vertex(list):
                 self[n] = self[n]._reduce_inner()
 
     def topo_visit(self, result_list, visited_set):
-        if self in visited_set:
-            return
         for v in self:
-            if type(v) is Vertex:
+            if type(v) is Vertex and v not in visited_set:
                 v.topo_visit(result_list, visited_set)
         visited_set.add(self)
         result_list.append(self)
