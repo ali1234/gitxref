@@ -2,6 +2,7 @@ import argparse
 import binascii
 import pathlib
 from collections import defaultdict
+from contextlib import redirect_stdout
 
 import numpy as np
 from tqdm import tqdm
@@ -41,22 +42,8 @@ def find_best(source, commit_groups):
     yield ([], unfound)
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Git x ref.')
-    parser.add_argument('repository', metavar='repository', type=pathlib.Path,
-                        help='Path to Git repository.')
-    parser.add_argument('directory', metavar='directory', type=pathlib.Path, default=None, nargs='?',
-                        help='Path to unpacked tarball.')
-    parser.add_argument('-r', '--rebuild', action='store_true',
-                        help='Force rebuild of cached metadata.')
-    parser.add_argument('-s', '--skip-cache', action='store_true',
-                        help="Don't load or save the cached metadata (implies -r).")
-    parser.add_argument('-d', '--debugging', action='store_true',
-                        help="Use extra caching for debugging.")
-    parser.add_argument('-p', '--processes', type=int, default=0,
-                        help="Number of worker processes. Default: 0 (disable multiprocessing).")
+def realmain(args):
 
-    args = parser.parse_args()
     repo = Repo(args.repository, force_rebuild=args.rebuild, skip_cache=args.skip_cache, processes=args.processes)
 
     if args.directory is None:
@@ -79,7 +66,34 @@ def main():
             print('   ', p)
 
 
+def main():
+    parser = argparse.ArgumentParser(description='Git x ref.')
+    parser.add_argument('repository', metavar='repository', type=pathlib.Path,
+                        help='Path to Git repository.')
+    parser.add_argument('directory', metavar='directory', type=pathlib.Path, default=None, nargs='?',
+                        help='Path to unpacked tarball.')
+    parser.add_argument('-r', '--rebuild', action='store_true',
+                        help='Force rebuild of cached metadata.')
+    parser.add_argument('-s', '--skip-cache', action='store_true',
+                        help="Don't load or save the cached metadata (implies -r).")
+    parser.add_argument('-d', '--debugging', action='store_true',
+                        help="Use extra caching for debugging.")
+    parser.add_argument('-p', '--processes', type=int, default=0,
+                        help="Number of worker processes. Default: 0 (disable multiprocessing).")
+    parser.add_argument('--profile', type=str, default=None,
+                        help='Benchmark with cProfile.')
+
+    args = parser.parse_args()
+    if args.profile is not None:
+        import cProfile
+        p = cProfile.Profile()
+        p.runcall(realmain, args)
+        with open(args.profile, 'w') as f:
+            with redirect_stdout(f):
+                p.print_stats()
+
+    else:
+        realmain(args)
+
 if __name__ == '__main__':
-    # import cProfile
-    # cProfile.run('main()')
     main()
