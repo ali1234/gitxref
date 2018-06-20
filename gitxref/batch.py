@@ -1,5 +1,3 @@
-import subprocess
-
 from binascii import unhexlify
 
 from gitxref.batchcheck import BatchCheck
