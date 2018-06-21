@@ -46,7 +46,7 @@ def realmain(args):
     repo = Repo(args.repository, force_rebuild=args.rebuild, skip_cache=args.skip_cache, processes=args.processes)
 
     if args.directory is None:
-        if args.rebuild:
+        if args.rebuild or 'graph' not in repo.cache:
             Graph(repo)
         return
 
