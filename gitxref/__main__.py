@@ -37,8 +37,7 @@ def find_best(source, commit_groups):
         inbest = best[0][1] & unfound
         yield (best[0][0], inbest)
         unfound &= ~best[0][1]
-        best = list(filter(lambda x: keyfunc(x) > 0, best[1:]))
-        best.sort(key=keyfunc, reverse=True)
+        best = sorted(filter(lambda x: keyfunc(x) > 0, best[1:]), key=keyfunc, reverse=True)
     yield ([], unfound)
 
 
