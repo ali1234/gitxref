@@ -17,15 +17,14 @@ class Vertex(list):
     def __eq__(self, other):
         return id(self) == id(other)
 
-    def _reduce_inner(self):
-        if type(self[0]) is Vertex and len(self[0]) == 1:
-            self[0] = self[0]._reduce_inner()
-        return self[0]
-
-    def reduce(self):
-        for n in range(len(self)):
-            if type(self[n]) is Vertex and len(self[n]) == 1:
-                self[n] = self[n]._reduce_inner()
+    def reduce(self, visited_set):
+        for n, v in enumerate(self):
+            if type(v) is Vertex:
+                if v not in visited_set:
+                    v.reduce(visited_set)
+                if len(v) == 1:
+                    self[n] = v[0]
+        visited_set.add(self)
 
     def topo_visit(self, result_list, visited_set):
         for v in self:
@@ -74,10 +73,9 @@ class Graph(object):
         print(', '.join('{:s}s: {:d}'.format(k.decode('utf8').capitalize(), v) for k,v in typecount.items()), file=sys.stderr)
         print('Blobs:', len(blobs), 'Edges:', edges, file=sys.stderr)
 
-        for v in tqdm(trees.values(), unit=' trees', desc='Reducing trees'):
-            v.reduce()
-        for v in tqdm(blobs.values(), unit=' blobs', desc='Reducing blobs'):
-            v.reduce()
+        visited_set = set()
+        for v in tqdm(blobs.values(), unit=' blobs', desc='Reducing graph'):
+            v.reduce(visited_set)
 
         return dict(blobs)
 
