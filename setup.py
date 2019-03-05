@@ -9,7 +9,7 @@ setup(
     author='Alistair Buxton',
     author_email='a.j.buxton@gmail.com',
     description='',
-    install_requires=['numpy', 'tqdm'],
+    install_requires=['numpy', 'tqdm', 'gitpython'],
     entry_points={
         'console_scripts': [
             'gitxref = gitxref.__main__:main'
